@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} — ExamGuard Pro</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- ========================= SIDEBAR ========================= -->
+<nav class="eg-sidebar">
+    <!-- Logo -->
+    <div class="eg-sidebar-logo">
+        <div class="eg-logo-icon">🛡️</div>
+        <div class="eg-logo-text">
+            <h2>ExamGuard Pro</h2>
+            <span>Integrity Monitoring</span>
+        </div>
+    </div>
+
+    <!-- User Profile Strip -->
+    {% if current_user.is_authenticated %}
+    <div class="eg-sidebar-user">
+        {% if current_user.photo_path %}
+            <img src="{{ url_for('static', filename='photos/' + current_user.photo_path) }}" class="eg-user-avatar" alt="photo">
+        {% else %}
+            <div class="eg-user-avatar-placeholder">{{ current_user.full_name[0]|upper }}</div>
+        {% endif %}
+        <div class="eg-user-info">
+            <div class="name">{{ current_user.full_name }}</div>
+            <div class="email">{{ current_user.email }}</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Navigation -->
+    <div class="eg-nav">
+        <div class="eg-nav-label">Main Menu</div>
+
+        <a href="{{ url_for('dashboard.dashboard', tab='overview') }}" class="eg-nav-item {% if request.endpoint == 'dashboard.dashboard' and request.args.get('tab', 'overview') == 'overview' %}active{% endif %}">
+            <span class="nav-icon">📊</span>
+            <span class="nav-text">Dashboard</span>
+        </a>
+
+        {% if current_user.is_authenticated %}
+        <a href="{{ url_for('exam.verify') }}" class="eg-nav-item {% if request.endpoint in ['exam.verify','exam.play','exam.start'] %}active{% endif %}">
+            <span class="nav-icon">📝</span>
+            <span class="nav-text">My Exam</span>
+        </a>
+        {% endif %}
+
+        <div class="eg-nav-label" style="margin-top:10px;">Integrity</div>
+
+        <a href="{{ url_for('dashboard.dashboard', tab='violations') }}" class="eg-nav-item">
+            <span class="nav-icon">⚠️</span>
+            <span class="nav-text">Violations</span>
+        </a>
+
+        <a href="{{ url_for('dashboard.dashboard', tab='reports') }}" class="eg-nav-item">
+            <span class="nav-icon">📋</span>
+            <span class="nav-text">Reports</span>
+        </a>
+
+        <div class="eg-nav-label" style="margin-top:10px;">Insights</div>
+
+        <a href="{{ url_for('dashboard.dashboard', tab='assessments') }}" class="eg-nav-item">
+            <span class="nav-icon">🎯</span>
+            <span class="nav-text">Assessments</span>
+        </a>
+
+        <a href="{{ url_for('dashboard.dashboard', tab='analytics') }}" class="eg-nav-item">
+            <span class="nav-icon">📈</span>
+            <span class="nav-text">Analytics</span>
+        </a>
+
+        <a href="{{ url_for('dashboard.dashboard', tab='monitoring') }}" class="eg-nav-item">
+            <span class="nav-icon">🎥</span>
+            <span class="nav-text">Monitoring</span>
+        </a>
+
+        <div class="eg-nav-label" style="margin-top:10px;">Account</div>
+
+        {% if current_user.is_authenticated %}
+        <a href="{{ url_for('camera.capture', candidate_id=current_user.id) }}" class="eg-nav-item {% if request.endpoint == 'camera.capture' %}active{% endif %}">
+            <span class="nav-icon">📷</span>
+            <span class="nav-text">Update Photo</span>
+        </a>
+        <a href="{{ url_for('dashboard.dashboard', tab='overview') }}" class="eg-nav-item">
+            <span class="nav-icon">👤</span>
+            <span class="nav-text">Profile</span>
+        </a>
+        {% else %}
+        <a href="{{ url_for('auth.register') }}" class="eg-nav-item {% if request.endpoint == 'auth.register' %}active{% endif %}">
+            <span class="nav-icon">📷</span>
+            <span class="nav-text">Register / Photo</span>
+        </a>
+        {% endif %}
+
+        <a href="{{ url_for('auth.login') }}" class="eg-nav-item {% if request.endpoint == 'auth.login' %}active{% endif %}">
+            <span class="nav-icon">🔑</span>
+            <span class="nav-text">Login</span>
+        </a>
+    </div>
+
+
+    <!-- Sidebar Footer -->
+    <div class="eg-sidebar-footer">
+        {% if current_user.is_authenticated %}
+            <a href="{{ url_for('auth.logout') }}" class="eg-nav-item" style="color:#ef4444;">
+                <span class="nav-icon">🚪</span>
+                <span class="nav-text">Logout</span>
+            </a>
+        {% endif %}
+    </div>
+</nav>
+
+<!-- ========================= TOP BAR ========================= -->
+<div class="eg-topbar">
+    <div class="eg-topbar-left">
+        <div>
+            <div class="eg-page-title">{% block page_title %}Dashboard{% endblock %}</div>
+            <div class="eg-breadcrumb">ExamGuard Pro &rsaquo; {% block breadcrumb %}Overview{% endblock %}</div>
+        </div>
+    </div>
+    <div class="eg-topbar-right">
+        <div class="eg-status-pill">
+            <div class="eg-status-dot"></div>
+            AI Proctor Active
+        </div>
+        {% if current_user.is_authenticated %}
+        <a href="{{ url_for('auth.logout') }}" class="eg-icon-btn" title="Logout">
+            <i class="fa-solid fa-right-from-bracket"></i>
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ========================= MAIN CONTENT ========================= -->
+<main class="eg-main">
+    <div class="eg-content">
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show mb-3" role="alert" style="border-radius:12px; font-size:13px;">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

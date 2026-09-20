@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Session Monitoring Report</h1>
+    <a href="{{ url_for('dashboard.dashboard') }}" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+</div>
+
+<div class="row">
+    <!-- Session Information -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow h-100">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Session Information</h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item"><strong>Candidate:</strong> {{ current_user.full_name }} ({{ current_user.email }})</li>
+                    <li class="list-group-item"><strong>Exam Name:</strong> {{ session.exam_name }}</li>
+                    <li class="list-group-item"><strong>Start Time:</strong> {{ session.exam_started_at.strftime('%Y-%m-%d %H:%M:%S UTC') if session.exam_started_at else 'N/A' }}</li>
+                    <li class="list-group-item"><strong>End Time:</strong> {{ session.exam_completed_at.strftime('%Y-%m-%d %H:%M:%S UTC') if session.exam_completed_at else 'N/A' }}</li>
+                    <li class="list-group-item">
+                        <strong>Duration:</strong> 
+                        {% if session.exam_started_at and session.exam_completed_at %}
+                            {{ ((session.exam_completed_at - session.exam_started_at).total_seconds() / 60)|round(1) }} minutes
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </li>
+                    <li class="list-group-item"><strong>Integrity Score:</strong> <span class="font-weight-bold text-{{ 'success' if session.integrity_score >= 75 else 'danger' }}">{{ session.integrity_score }}</span></li>
+                    <li class="list-group-item"><strong>Risk Level:</strong> <span class="badge bg-{{ 'success' if session.integrity_score >= 75 else ('warning' if session.integrity_score >= 50 else 'danger') }}">{% if session.integrity_score >= 75 %}Low{% elif session.integrity_score >= 50 %}Medium{% else %}High{% endif %}</span></li>
+                    <li class="list-group-item"><strong>Behaviour Cluster:</strong> <span class="badge bg-info">{{ session.behaviour_cluster or 'N/A' }}</span></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Face Monitoring Stats -->
+    <div class="col-md-3 mb-4">
+        <div class="card shadow h-100 border-left-info">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-info">Face Monitoring</h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush small">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Total Face Absence:</span>
+                        <strong>{{ monitoring_stats.total_face_absence }}s</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Absence Intervals:</span>
+                        <strong>{{ monitoring_stats.face_absence_intervals }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Eyes Not Detected:</span>
+                        <strong>{{ monitoring_stats.eyes_not_detected_intervals }} ({{ monitoring_stats.total_eyes_not_detected }}s)</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Multiple Face Events:</span>
+                        <strong>{{ monitoring_stats.multiple_face_events }}</strong>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Browser Monitoring Stats -->
+    <div class="col-md-3 mb-4">
+        <div class="card shadow h-100 border-left-warning">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-warning">Browser Monitoring</h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush small">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Tab Switch Count:</span>
+                        <strong>{{ monitoring_stats.tab_switch_count }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Focus Loss Count:</span>
+                        <strong>{{ monitoring_stats.focus_loss_count }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Total Focus Loss Duration:</span>
+                        <strong>{{ monitoring_stats.total_focus_loss_duration }}s</strong>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Violations -->
+    <div class="col-12 mb-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-danger">Recorded Violations</h6>
+            </div>
+            <div class="card-body">
+                {% if violations %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped" width="100%" cellspacing="0">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Violation Type</th>
+                                    <th>Severity</th>
+                                    <th>Duration</th>
+                                    <th>Description</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for v in violations %}
+                                <tr>
+                                    <td>{{ v.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                    <td class="font-weight-bold">{{ v.violation_type }}</td>
+                                    <td><span class="badge bg-{{ 'danger' if v.severity in ['Critical', 'High'] else 'warning' }}">{{ v.severity }}</span></td>
+                                    <td>{{ v.duration ~ 's' if v.duration else '-' }}</td>
+                                    <td>{{ v.description }}</td>
+                                    <td>{{ v.status }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-success text-center">
+                        <i class="fas fa-check-circle fa-2x mb-2 d-block text-success"></i>
+                        No violations were recorded during this session.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- All Raw Events -->
+    <div class="col-12">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-secondary">Raw Monitoring Events</h6>
+            </div>
+            <div class="card-body">
+                <div style="max-height: 400px; overflow-y: auto;">
+                    <ul class="list-group list-group-flush small">
+                        {% for event in events %}
+                            <li class="list-group-item">
+                                <span class="text-muted">[{{ event.timestamp.strftime('%H:%M:%S') }}]</span> 
+                                <strong>{{ event.event_type }}</strong> - {{ event.description }}
+                                {% if event.duration %} ({{ event.duration }}s) {% endif %}
+                            </li>
+                        {% else %}
+                            <li class="list-group-item">No events logged.</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

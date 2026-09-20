@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .exam-setup { max-width: 980px; margin: 0 auto; }
+    .setup-hero { background: linear-gradient(135deg, #10233f, #173d63); color: white; border-radius: 16px; padding: 28px 32px; }
+    .setup-hero h1 { font-size: 26px; font-weight: 800; margin: 0 0 8px; }
+    .setup-hero p { color: #c8d8e8; margin: 0; }
+    .setup-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 18px 0; }
+    .setup-step { background: white; border: 1px solid #dbe4ee; border-radius: 10px; padding: 14px; color: #64748b; }
+    .setup-step.active { border-color: #1769aa; box-shadow: 0 4px 14px rgba(23,105,170,.12); color: #10233f; }
+    .setup-step.complete { border-color: #138a64; color: #10233f; }
+    .setup-step.complete .setup-step-number { background: #138a64; color: white; }
+    .setup-step-number { display: inline-flex; width: 26px; height: 26px; border-radius: 50%; align-items: center; justify-content: center; background: #e8eef5; font-weight: 800; margin-right: 8px; }
+    .setup-step.active .setup-step-number { background: #1769aa; color: white; }
+    .setup-grid { display: grid; grid-template-columns: .85fr 1.15fr; gap: 18px; }
+    .setup-panel { background: white; border: 1px solid #dbe4ee; border-radius: 14px; padding: 22px; }
+    .setup-panel h2 { font-size: 17px; color: #10233f; font-weight: 800; }
+    .setup-check { display: flex; gap: 10px; padding: 12px 0; border-bottom: 1px solid #eef2f6; color: #475569; font-size: 14px; }
+    .setup-check:last-child { border-bottom: 0; }
+    .setup-check i { color: #138a64; margin-top: 3px; }
+    .photo-frame { min-height: 245px; background: #f2f6fa; border: 1px solid #dbe4ee; border-radius: 10px; padding: 8px; }
+    @media (max-width: 760px) { .setup-grid { grid-template-columns: 1fr; } .setup-steps { grid-template-columns: 1fr; } .setup-hero { padding: 22px; } }
+</style>
+<div class="exam-setup">
+    <div class="setup-hero">
+        <div style="font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:#8fc3e9; font-weight:700;">Secure assessment portal</div>
+        <h1>Prepare for your assessment</h1>
+        <p>Complete the identity and device checks before entering the monitored exam.</p>
+    </div>
+
+    <div class="setup-steps" aria-label="Exam setup progress">
+        <div id="step1" class="setup-step active"><span class="setup-step-number">1</span><strong>Identity check</strong><div style="font-size:12px; margin:5px 0 0 35px;">Verify your face</div></div>
+        <div id="step2" class="setup-step"><span class="setup-step-number">2</span><strong>System check</strong><div style="font-size:12px; margin:5px 0 0 35px;">Camera and browser</div></div>
+        <div id="step3" class="setup-step"><span class="setup-step-number">3</span><strong>Start exam</strong><div style="font-size:12px; margin:5px 0 0 35px;">Enter monitored mode</div></div>
+    </div>
+
+    <div id="identityPanel" class="setup-grid">
+        <div class="setup-panel">
+            <h2>Before you continue</h2>
+            <div class="setup-check"><i class="fas fa-check-circle"></i><span>Use a quiet, well-lit room with your face clearly visible.</span></div>
+            <div class="setup-check"><i class="fas fa-check-circle"></i><span>Keep only the exam tab open during the assessment.</span></div>
+            <div class="setup-check"><i class="fas fa-check-circle"></i><span>Camera monitoring continues while you answer questions.</span></div>
+            <div class="setup-check"><i class="fas fa-check-circle"></i><span>Do not refresh or close the exam window.</span></div>
+            <div id="statusAlert" class="alert d-none mt-3 mb-0"></div>
+        </div>
+
+        <div class="setup-panel">
+            <h2>Confirm your identity</h2>
+            <div class="row mt-3">
+                <div class="col-sm-5 text-center">
+                    <div style="font-size:12px; font-weight:700; color:#64748b; margin-bottom:8px;">REGISTERED PHOTO</div>
+                    <div class="photo-frame"><img src="{{ url_for('static', filename='photos/' + current_user.photo_path) }}" class="img-fluid rounded" style="max-height:225px;" alt="Registered profile"></div>
+                </div>
+                <div class="col-sm-7 text-center mt-3 mt-sm-0">
+                    <div style="font-size:12px; font-weight:700; color:#64748b; margin-bottom:8px;">LIVE CAMERA VERIFICATION</div>
+                    <div class="photo-frame"><video id="video" width="100%" autoplay muted playsinline style="width:100%; height:225px; object-fit:cover; background:#0f172a;"></video><canvas id="canvas" style="display:none;"></canvas></div>
+                    <div class="small text-success mt-3"><i class="fas fa-circle"></i> Live camera is active automatically</div>
+                </div>
+            </div>
+            <div class="mt-4 text-right"><button id="verifyBtn" class="btn btn-primary px-4"><i class="fas fa-shield-alt"></i> Verify and continue</button><a href="{{ url_for('dashboard.dashboard') }}" class="btn btn-light ml-2">Cancel</a></div>
+        </div>
+    </div>
+
+    <div id="systemPanel" class="setup-panel d-none mt-3">
+        <h2>System check complete</h2>
+        <p class="text-muted">Your identity is verified. Confirm the exam environment before starting.</p>
+        <div class="setup-check"><i class="fas fa-check-circle"></i><span>Live camera is available for monitoring.</span></div>
+        <div class="setup-check"><i class="fas fa-check-circle"></i><span>Browser session is ready.</span></div>
+        <button id="systemContinueBtn" type="button" class="btn btn-primary mt-3">Continue to start exam <i class="fas fa-arrow-right"></i></button>
+    </div>
+
+    <div id="startPanel" class="setup-panel d-none mt-3 text-center">
+        <div style="font-size:42px; color:#138a64;"><i class="fas fa-circle-check"></i></div>
+        <h2>Everything is ready</h2>
+        <p class="text-muted">Your exam will open in monitored mode. Keep your camera on until submission.</p>
+        <form method="POST" action="{{ url_for('exam.start') }}">
+            <button type="submit" class="btn btn-success btn-lg px-5">Start exam <i class="fas fa-play"></i></button>
+        </form>
+    </div>
+</div>
+
+<script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const verifyBtn = document.getElementById('verifyBtn');
+    const identityPanel = document.getElementById('identityPanel');
+    const systemPanel = document.getElementById('systemPanel');
+    const startPanel = document.getElementById('startPanel');
+    const systemContinueBtn = document.getElementById('systemContinueBtn');
+    const statusAlert = document.getElementById('statusAlert');
+    let cameraStream = null;
+
+    // Access webcam
+    function startCamera() {
+        navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then(function(stream) {
+            cameraStream = stream;
+            video.srcObject = stream;
+            video.muted = true;
+            video.onloadedmetadata = function() {
+                video.play().catch(function(error) {
+                    console.log('Camera preview autoplay was blocked:', error);
+                });
+            };
+        })
+        .catch(function(err) {
+            console.log("An error occurred: " + err);
+            statusAlert.className = 'alert alert-danger';
+            statusAlert.innerText = 'Could not access webcam. Live camera is required for the exam.';
+            statusAlert.classList.remove('d-none');
+        });
+    }
+
+    startCamera();
+
+    verifyBtn.addEventListener('click', function() {
+        verifyBtn.disabled = true;
+        verifyBtn.innerText = "Verifying...";
+        statusAlert.classList.add('d-none');
+        
+        if (!video.videoWidth || !video.videoHeight) {
+            statusAlert.className = 'alert alert-danger';
+            statusAlert.innerText = 'Live camera access is required for exam verification.';
+            statusAlert.classList.remove('d-none');
+            verifyBtn.disabled = false;
+            verifyBtn.innerText = "Verify and continue";
+            return;
+        }
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataURL = canvas.toDataURL('image/jpeg');
+
+        // Send to backend
+        fetch("{{ url_for('exam.verify') }}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ image: dataURL })
+        })
+        .then(response => response.json())
+        .then(data => {
+            statusAlert.classList.remove('d-none');
+            if (data.success) {
+                statusAlert.className = 'alert alert-success';
+                    statusAlert.innerText = data.message + ' Continue with the system check.';
+                    identityPanel.classList.add('d-none');
+                    systemPanel.classList.remove('d-none');
+                    document.getElementById('step1').classList.remove('active');
+                    document.getElementById('step1').classList.add('complete');
+                    document.getElementById('step2').classList.add('active');
+            } else {
+                statusAlert.className = 'alert alert-danger';
+                statusAlert.innerText = data.message + ' Please try again.';
+                verifyBtn.disabled = false;
+                verifyBtn.innerText = "Verify My Identity";
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            statusAlert.className = 'alert alert-danger';
+            statusAlert.innerText = 'An error occurred during verification.';
+            verifyBtn.disabled = false;
+            verifyBtn.innerText = "Verify My Identity";
+        });
+    });
+
+    systemContinueBtn.addEventListener('click', function() {
+        if (!cameraStream || !video.videoWidth) {
+            statusAlert.className = 'alert alert-danger';
+            statusAlert.innerText = 'The live camera must remain available before starting the exam.';
+            statusAlert.classList.remove('d-none');
+            return;
+        }
+        systemPanel.classList.add('d-none');
+        startPanel.classList.remove('d-none');
+        document.getElementById('step2').classList.remove('active');
+        document.getElementById('step2').classList.add('complete');
+        document.getElementById('step3').classList.add('active');
+    });
+
+    window.addEventListener('beforeunload', function() {
+        if (cameraStream) cameraStream.getTracks().forEach(track => track.stop());
+    });
+</script>
+{% endblock %}

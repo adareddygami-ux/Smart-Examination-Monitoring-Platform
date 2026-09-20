@@ -1,0 +1,388 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .exam-shell { max-width: 1280px; margin: 0 auto; }
+    .exam-topbar { background: #10233f; color: white; border-radius: 14px; padding: 18px 22px; display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:14px; }
+    .exam-topbar h1 { font-size:20px; font-weight:800; margin:0 0 4px; }
+    .exam-topbar small { color:#b9cbe0; }
+    .exam-timer { background:#fff; color:#b42318; border-radius:8px; padding:9px 14px; font-weight:800; white-space:nowrap; }
+    .exam-stage { display:flex; gap:8px; margin-bottom:14px; }
+    .exam-stage span { flex:1; height:5px; border-radius:4px; background:#dbe4ee; }
+    .exam-stage span.done, .exam-stage span.active { background:#1769aa; }
+    .exam-layout { display:grid; grid-template-columns:minmax(0, 1fr) 340px; gap:16px; }
+    .exam-card { background:#fff; border:1px solid #dbe4ee; border-radius:14px; overflow:hidden; }
+    .exam-card-head { padding:18px 22px; border-bottom:1px solid #edf1f5; display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .exam-card-head h2 { font-size:16px; color:#10233f; font-weight:800; margin:0; }
+    .question-index { color:#64748b; font-size:13px; font-weight:700; }
+    .question-body { padding:28px 26px; min-height:450px; }
+    .question-body h3 { color:#10233f; font-size:21px; line-height:1.5; margin:0 0 26px; }
+    .answer-option { display:flex; align-items:flex-start; gap:12px; padding:15px; border:1px solid #dbe4ee; border-radius:9px; margin-bottom:12px; cursor:pointer; transition:.15s; }
+    .answer-option:hover { border-color:#1769aa; background:#f5f9fc; }
+    .answer-option label { cursor:pointer; margin:0; color:#334155; font-size:15px; }
+    .exam-actions { border-top:1px solid #edf1f5; padding:16px 22px; display:flex; justify-content:space-between; }
+    .monitor-card { background:#10233f; color:white; border-radius:14px; padding:16px; position:sticky; top:14px; height:max-content; }
+    .monitor-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+    .monitor-head h2 { font-size:15px; margin:0; font-weight:800; }
+    .live-dot { color:#52d39b; font-size:12px; font-weight:700; }
+    .monitor-video { width:100%; aspect-ratio:4/3; object-fit:cover; background:#07111f; border-radius:9px; border:1px solid #2b4663; }
+    .monitor-status { display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid #29415d; font-size:13px; }
+    .monitor-status:last-child { border-bottom:0; }
+    .monitor-label { color:#b9cbe0; }
+    .monitor-value { font-weight:700; }
+    .integrity-box { background:#173d63; border-radius:9px; padding:12px; margin-top:14px; font-size:12px; color:#d6e4f1; }
+    @media (max-width: 900px) { .exam-layout { grid-template-columns:1fr; } .monitor-card { position:static; } }
+</style>
+<div class="exam-shell">
+    <div class="exam-topbar">
+        <div><div style="font-size:11px; color:#8fc3e9; text-transform:uppercase; letter-spacing:.08em; font-weight:700;">Secure assessment</div><h1>General Assessment</h1><small>Candidate monitoring is active for this session</small></div>
+        <div class="exam-timer"><i class="fas fa-clock"></i> <span id="timer">60:00</span></div>
+    </div>
+    <div class="exam-stage" aria-label="Exam progress"><span class="done"></span><span class="active"></span><span></span></div>
+
+    <div class="exam-layout">
+        <section class="exam-card">
+            <div class="exam-card-head"><h2>Assessment question</h2><div class="text-right"><span id="questionProgress" class="question-index">Question {{ current_idx + 1 }} of {{ total }}</span><div id="questionMeta" style="font-size:11px; color:#94a3b8; margin-top:4px;">{{ question.category or 'General' }} · {{ question.difficulty or 'Medium' }}</div></div></div>
+            <div class="question-body">
+                <h3 id="questionText">{{ question.question }}</h3>
+                
+                <form id="examQuestionForm" method="POST" action="{{ url_for('exam.play', idx=current_idx) }}">
+                    <div class="answer-option">
+                        <input class="form-check-input interaction-radio" type="radio" name="answer" id="optA" value="{{ question.option_a }}" {% if saved_answer == question.option_a %}checked{% endif %}>
+                        <label class="form-check-label" for="optA">{{ question.option_a }}</label>
+                    </div>
+                    <div class="answer-option">
+                        <input class="form-check-input interaction-radio" type="radio" name="answer" id="optB" value="{{ question.option_b }}" {% if saved_answer == question.option_b %}checked{% endif %}>
+                        <label class="form-check-label" for="optB">{{ question.option_b }}</label>
+                    </div>
+                    <div class="answer-option">
+                        <input class="form-check-input interaction-radio" type="radio" name="answer" id="optC" value="{{ question.option_c }}" {% if saved_answer == question.option_c %}checked{% endif %}>
+                        <label class="form-check-label" for="optC">{{ question.option_c }}</label>
+                    </div>
+                    <div class="answer-option">
+                        <input class="form-check-input interaction-radio" type="radio" name="answer" id="optD" value="{{ question.option_d }}" {% if saved_answer == question.option_d %}checked{% endif %}>
+                        <label class="form-check-label" for="optD">{{ question.option_d }}</label>
+                    </div>
+
+                    <div class="exam-actions">
+                        <button type="submit" name="prev" class="btn btn-secondary px-4 interaction-btn" data-event="PREVIOUS_QUESTION" {% if current_idx == 0 %}style="display:none;"{% endif %}><i class="fas fa-arrow-left"></i> Previous</button>
+                        <button type="submit" name="next" class="btn btn-primary px-4 interaction-btn" data-event="NEXT_QUESTION" {% if current_idx == total - 1 %}style="display:none;"{% endif %}>Save & Next <i class="fas fa-arrow-right"></i></button>
+                        <button type="submit" name="submit" class="btn btn-success px-4 interaction-btn" data-event="EXAM_SUBMITTED" {% if current_idx < total - 1 %}style="display:none;"{% endif %} onclick="return confirm('Submit exam now? You cannot undo this action.');"><i class="fas fa-check"></i> Submit Exam</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <aside class="monitor-card">
+            <div class="monitor-head"><h2><i class="fas fa-shield-alt"></i> Proctoring monitor</h2><span class="live-dot">● LIVE</span></div>
+            <video id="video" class="monitor-video" autoplay playsinline></video>
+            <canvas id="canvas" style="display:none;"></canvas>
+            <div class="monitor-status"><span class="monitor-label">Camera</span><span id="camStatus" class="monitor-value" style="color:#52d39b;">Connected</span></div>
+            <div class="monitor-status"><span class="monitor-label">Face status</span><span id="monitorStatus" class="badge bg-secondary">Initializing...</span></div>
+            <div class="monitor-status"><span class="monitor-label">Browser status</span><span id="browserStatus" class="monitor-value" style="color:#52d39b;">Active</span></div>
+            <div class="integrity-box"><div style="font-weight:800; margin-bottom:9px;">Integrity signals</div><div class="d-flex justify-content-between mb-2"><span>Tab switches</span><strong id="tabSwitchesCount">{{ stats.tab_switches if stats else 0 }}</strong></div><div class="d-flex justify-content-between mb-2"><span>Focus loss</span><strong id="focusLossCount">{{ stats.focus_losses if stats else 0 }}</strong></div><div class="d-flex justify-content-between"><span>Eyes not detected</span><strong id="eyesNotDetectedCount">{{ stats.eyes_not_detected if stats else 0 }}</strong></div></div>
+            <div id="cheatingAlert" class="alert alert-info p-2 small font-weight-bold mt-3 mb-0"><i class="fas fa-info-circle"></i> <span id="alertMsg">Monitoring active</span></div>
+        </aside>
+    </div>
+</div>
+
+<script>
+    // Constants
+    const SESSION_ID = "{{ session_id }}";
+
+    // Timer Logic
+    let timeLeft = 3600; // 60 minutes
+    const timerEl = document.getElementById('timer');
+    setInterval(() => {
+        if(timeLeft <= 0) return;
+        timeLeft--;
+        let m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+        let s = (timeLeft % 60).toString().padStart(2, '0');
+        timerEl.innerText = `${m}:${s}`;
+    }, 1000);
+
+    const questionForm = document.getElementById('examQuestionForm');
+    const questionTextEl = document.getElementById('questionText');
+
+    function updateQuestionContent(data) {
+        const question = data.question;
+        if (!question) return;
+
+        questionTextEl.textContent = question.question;
+        document.getElementById('optA').value = question.option_a;
+        document.getElementById('optB').value = question.option_b;
+        document.getElementById('optC').value = question.option_c;
+        document.getElementById('optD').value = question.option_d;
+
+        document.getElementById('optA').checked = (data.saved_answer === question.option_a);
+        document.getElementById('optB').checked = (data.saved_answer === question.option_b);
+        document.getElementById('optC').checked = (data.saved_answer === question.option_c);
+        document.getElementById('optD').checked = (data.saved_answer === question.option_d);
+
+        document.querySelector('label[for="optA"]').textContent = question.option_a;
+        document.querySelector('label[for="optB"]').textContent = question.option_b;
+        document.querySelector('label[for="optC"]').textContent = question.option_c;
+        document.querySelector('label[for="optD"]').textContent = question.option_d;
+
+        document.getElementById('questionProgress').textContent = `Question ${data.current_idx + 1} of ${data.total}`;
+        document.getElementById('questionMeta').textContent = `${question.category || 'General'} · ${question.difficulty || 'Medium'}`;
+        questionForm.action = data.form_action;
+
+        const prevBtn = document.querySelector('button[name="prev"]');
+        const nextBtn = document.querySelector('button[name="next"]');
+        const submitBtn = document.querySelector('button[name="submit"]');
+
+        if (data.current_idx > 0 && prevBtn) {
+            prevBtn.style.display = 'inline-block';
+        } else if (prevBtn) {
+            prevBtn.style.display = 'none';
+        }
+
+        if (data.current_idx < data.total - 1) {
+            if (nextBtn) nextBtn.style.display = 'inline-block';
+            if (submitBtn) submitBtn.style.display = 'none';
+        } else {
+            if (nextBtn) nextBtn.style.display = 'none';
+            if (submitBtn) submitBtn.style.display = 'inline-block';
+        }
+    }
+
+    function submitQuestionForm(event) {
+        if (event) event.preventDefault();
+        const formData = new FormData(questionForm);
+        const activeButton = document.activeElement && document.activeElement.tagName === 'BUTTON' ? document.activeElement : null;
+        if (activeButton && activeButton.name) {
+            formData.append(activeButton.name, activeButton.name);
+        }
+
+        fetch(questionForm.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) return;
+            if (data.redirect_url) {
+                window.location.href = data.redirect_url;
+                return;
+            }
+            updateQuestionContent(data);
+        })
+        .catch(err => {
+            console.error('Question navigation failed:', err);
+            questionForm.submit();
+        });
+    }
+
+    if (questionForm) {
+        questionForm.addEventListener('submit', function(event) {
+            const submitter = event.submitter || document.activeElement;
+            if (submitter && (submitter.name === 'next' || submitter.name === 'prev' || submitter.name === 'submit')) {
+                submitQuestionForm(event);
+            }
+        });
+    }
+
+    // --- Interaction Logging ---
+    function logInteraction(eventType) {
+        fetch("/api/monitoring/interaction_event", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ event_type: eventType })
+        }).catch(err => console.error(err));
+    }
+
+    logInteraction('QUESTION_VIEWED');
+
+    document.querySelectorAll('.interaction-radio').forEach(radio => {
+        radio.addEventListener('change', () => {
+            logInteraction('ANSWER_SELECTED');
+        });
+    });
+
+    document.querySelectorAll('.interaction-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            logInteraction(btn.getAttribute('data-event'));
+        });
+    });
+
+    // --- Browser Event Monitoring ---
+    let tabSwitchCount = parseInt("{{ stats.tab_switches if stats else 0 }}");
+    let focusLossCount = parseInt("{{ stats.focus_losses if stats else 0 }}");
+    let focusLostTime = 0;
+    
+    let eyesNotDetectedCount = parseInt("{{ stats.eyes_not_detected if stats else 0 }}");
+    const eyesNotDetectedCountEl = document.getElementById('eyesNotDetectedCount');
+    
+    const tabSwitchesCountEl = document.getElementById('tabSwitchesCount');
+    const focusLossCountEl = document.getElementById('focusLossCount');
+    const browserStatusEl = document.getElementById('browserStatus');
+    const alertMsg = document.getElementById('alertMsg');
+    const cheatingAlert = document.getElementById('cheatingAlert');
+    let autoSubmitTriggered = false;
+
+    function handleAutoSubmit(data) {
+        if (!data || !data.auto_submit || autoSubmitTriggered) return;
+        autoSubmitTriggered = true;
+        setAlert('Three warnings reached. Submitting your exam...', 'danger');
+        document.querySelectorAll('button').forEach(button => { button.disabled = true; });
+        setTimeout(() => {
+            window.location.href = data.redirect_url;
+        }, 1200);
+    }
+
+    function sendBrowserEvent(eventType, duration = null) {
+        return fetch("/api/monitoring/browser_event", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ event_type: eventType, duration: duration })
+        }).then(response => response.json()).then(handleAutoSubmit).catch(err => console.error(err));
+    }
+
+    // Tab Switching
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+            tabSwitchCount++;
+            tabSwitchesCountEl.innerText = tabSwitchCount;
+            sendBrowserEvent('TAB_SWITCH');
+            browserStatusEl.innerText = 'Tab Hidden';
+            browserStatusEl.className = 'text-danger font-weight-bold';
+            setAlert('Suspicious: Tab Switched!', 'danger');
+        } else {
+            sendBrowserEvent('TAB_RETURN');
+            browserStatusEl.innerText = 'Exam Window Active';
+            browserStatusEl.className = 'text-success';
+        }
+    });
+
+    // Focus Loss
+    window.addEventListener("blur", () => {
+        focusLostTime = Date.now();
+        focusLossCount++;
+        focusLossCountEl.innerText = focusLossCount;
+        sendBrowserEvent('FOCUS_LOST');
+        browserStatusEl.innerText = 'Focus Lost';
+        browserStatusEl.className = 'text-warning font-weight-bold';
+        setAlert('Suspicious: Window Focus Lost!', 'warning');
+    });
+
+    window.addEventListener("focus", () => {
+        let duration = focusLostTime ? Math.floor((Date.now() - focusLostTime) / 1000) : 0;
+        sendBrowserEvent('FOCUS_GAINED', duration);
+        browserStatusEl.innerText = 'Exam Window Active';
+        browserStatusEl.className = 'text-success';
+        focusLostTime = 0;
+    });
+
+    function setAlert(msg, type) {
+        alertMsg.innerText = msg;
+        cheatingAlert.className = `alert alert-${type} p-2 small font-weight-bold mb-0`;
+    }
+
+
+    // --- Live Video Monitoring ---
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const monitorStatus = document.getElementById('monitorStatus');
+    
+    let noFaceStartTime = 0;
+    let streamRef = null;
+    
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then(function(stream) {
+            streamRef = stream;
+            video.srcObject = stream;
+            video.play();
+            // Capture frame every 3 seconds
+            setInterval(captureAndAnalyze, 3000);
+        })
+        .catch(function(err) {
+            console.log("An error occurred: " + err);
+            monitorStatus.className = 'badge bg-danger';
+            monitorStatus.innerText = 'Camera Error';
+        });
+
+    function sendFaceAbsentInterval(duration, eventType='FACE_ABSENT') {
+        return fetch("/api/monitoring/face_interval", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ duration: duration, event_type: eventType })
+        }).then(response => response.json()).then(handleAutoSubmit).catch(err => console.error(err));
+    }
+
+    function captureAndAnalyze() {
+        if(!video.videoWidth) return;
+        
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+        let dataURL = canvas.toDataURL('image/jpeg');
+        
+        fetch("/api/monitoring/webcam", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ image: dataURL })
+        })
+        .then(response => response.json())
+        .then(data => {
+            handleAutoSubmit(data);
+            if(data.success) {
+                let status = data.status; // FACE_PRESENT, NO_FACE, MULTIPLE_FACES, EYES_NOT_DETECTED
+                
+                // Interval tracking logic
+                if(status === 'NO_FACE' || status === 'EYES_NOT_DETECTED') {
+                    if(noFaceStartTime === 0) {
+                        noFaceStartTime = Date.now();
+                    }
+                    if(status === 'NO_FACE') {
+                        monitorStatus.innerText = 'No Face Detected';
+                        monitorStatus.className = 'badge bg-danger';
+                        setAlert('Warning: Face not detected in frame.', 'danger');
+                    } else {
+                        monitorStatus.innerText = 'Eyes Not Detected';
+                        monitorStatus.className = 'badge bg-warning text-dark';
+                        setAlert('Warning: Please look at the screen.', 'warning');
+                    }
+                } else {
+                    if(noFaceStartTime > 0) {
+                        let duration = Math.floor((Date.now() - noFaceStartTime) / 1000);
+                        if (duration > 2) {
+                            let isEyesEvent = (monitorStatus.innerText === 'Eyes Not Detected');
+                            sendFaceAbsentInterval(duration, isEyesEvent ? 'EYES_NOT_DETECTED' : 'FACE_ABSENT');
+                            
+                            if (isEyesEvent) {
+                                eyesNotDetectedCount++;
+                                eyesNotDetectedCountEl.innerText = eyesNotDetectedCount;
+                            }
+                        }
+                        noFaceStartTime = 0; // Reset
+                    }
+                    
+                    if(status === 'FACE_PRESENT') {
+                        monitorStatus.innerText = 'Face Detected';
+                        monitorStatus.className = 'badge bg-success';
+                        setAlert('Monitoring Active', 'info');
+                    } else if (status === 'MULTIPLE_FACES') {
+                        monitorStatus.innerText = 'Multiple Faces';
+                        monitorStatus.className = 'badge bg-danger';
+                        setAlert('Warning: Multiple faces detected!', 'danger');
+                    }
+                }
+            }
+        }).catch(err => console.error(err));
+    }
+
+    // Cleanup on beforeunload
+    window.addEventListener('beforeunload', () => {
+        if(noFaceStartTime > 0) {
+            let duration = Math.floor((Date.now() - noFaceStartTime) / 1000);
+            if(duration > 2) sendFaceAbsentInterval(duration);
+        }
+        if(streamRef) {
+            streamRef.getTracks().forEach(track => track.stop());
+        }
+    });
+
+</script>
+{% endblock %}

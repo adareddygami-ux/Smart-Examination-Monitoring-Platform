@@ -1,0 +1,35 @@
+project/
+├── app.py
+├── config.py
+├── requirements.txt
+├── instance/
+│   └── database.db
+├── models/
+│   ├── __init__.py
+│   ├── candidate.py
+│   ├── exam_session.py
+│   ├── authentication_log.py
+│   └── session_log.py
+├── routes/
+│   ├── __init__.py
+│   ├── auth.py
+│   ├── dashboard.py
+│   └── camera.py
+├── templates/
+│   ├── base.html
+│   ├── index.html
+│   ├── register.html
+│   ├── login.html
+│   ├── dashboard.html
+│   └── capture.html
+├── static/
+│   ├── css/
+│   │   └── style.css
+│   ├── js/
+│   │   └── script.js
+│   └── photos/
+├── utils/
+│   ├── __init__.py
+│   ├── camera.py
+│   └── faker_generator.py
+└── extensions.py

@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-info text-white">
+                <h4 class="mb-0">Profile Photo - {{ candidate.full_name }}</h4>
+            </div>
+            <div class="card-body text-center">
+                <p class="lead mb-4">Add your profile photo using the live camera or gallery.</p>
+                
+                <div class="alert alert-warning text-start">
+                    <strong>Instructions:</strong>
+                    <ul>
+                        <li>Allow camera access when your browser asks.</li>
+                        <li>Keep your face centered and clearly visible in the live preview.</li>
+                        <li>Make sure only one face is in frame before saving.</li>
+                        <li>Use the gallery only if camera access is unavailable.</li>
+                    </ul>
+                </div>
+
+                <video id="cameraPreview" class="img-fluid rounded border" autoplay muted playsinline></video>
+                <img id="photoPreview" class="img-fluid rounded border d-none" alt="Selected photo">
+                <canvas id="photoCanvas" class="d-none"></canvas>
+                <div id="cameraStatus" class="small text-muted mt-2">Starting live camera...</div>
+
+                <form method="POST" action="" id="photoForm">
+                    <input type="hidden" name="photo_data" id="photoData">
+                    <button type="button" id="cameraButton" class="btn btn-primary btn-lg mt-3" disabled>Capture Live Photo</button>
+                    <label for="galleryInput" class="btn btn-outline-secondary btn-lg mt-3">Gallery fallback</label>
+                    <input type="file" id="galleryInput" accept="image/*" class="d-none">
+                    <button type="submit" id="saveButton" class="btn btn-success btn-lg mt-3" disabled>Save Photo</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const cameraPreview = document.getElementById('cameraPreview');
+    const photoPreview = document.getElementById('photoPreview');
+    const photoCanvas = document.getElementById('photoCanvas');
+    const photoData = document.getElementById('photoData');
+    const galleryInput = document.getElementById('galleryInput');
+    const cameraButton = document.getElementById('cameraButton');
+    const saveButton = document.getElementById('saveButton');
+    const cameraStatus = document.getElementById('cameraStatus');
+    let cameraStream = null;
+
+    async function startLiveCamera() {
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            cameraPreview.srcObject = cameraStream;
+            cameraPreview.muted = true;
+            await cameraPreview.play();
+            cameraPreview.classList.remove('d-none');
+            photoPreview.classList.add('d-none');
+            cameraStatus.textContent = 'Live camera active. Keep your face centered and visible.';
+            cameraStatus.className = 'small text-success mt-2';
+            cameraButton.disabled = false;
+        } catch (error) {
+            cameraStatus.textContent = 'Camera unavailable. You can use the gallery fallback.';
+            cameraStatus.className = 'small text-danger mt-2';
+        }
+    }
+
+    cameraButton.addEventListener('click', function() {
+        if (!cameraStream) {
+            startLiveCamera();
+            return;
+        }
+        if (!cameraPreview.videoWidth) return;
+        photoCanvas.width = cameraPreview.videoWidth;
+        photoCanvas.height = cameraPreview.videoHeight;
+        photoCanvas.getContext('2d').drawImage(cameraPreview, 0, 0);
+        photoData.value = photoCanvas.toDataURL('image/jpeg');
+        photoPreview.src = photoData.value;
+        photoPreview.classList.remove('d-none');
+        cameraPreview.classList.add('d-none');
+        cameraButton.textContent = 'Retake Live Photo';
+        cameraStatus.textContent = 'Photo captured. Please save only if your face is clear and centered.';
+        cameraStatus.className = 'small text-warning mt-2';
+        saveButton.disabled = false;
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+    });
+
+    galleryInput.addEventListener('change', function() {
+        const file = galleryInput.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            photoData.value = event.target.result;
+            photoPreview.src = photoData.value;
+            photoPreview.classList.remove('d-none');
+            cameraPreview.classList.add('d-none');
+            saveButton.disabled = false;
+            cameraStatus.textContent = 'Gallery photo selected as fallback.';
+        };
+        reader.readAsDataURL(file);
+    });
+
+    startLiveCamera();
+
+    window.addEventListener('beforeunload', function() {
+        if (cameraStream) cameraStream.getTracks().forEach(track => track.stop());
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,11 @@
+@echo off
+setlocal
+set "SCRIPT_DIR=%~dp0"
+
+if exist "%SCRIPT_DIR%.venv312\Scripts\python.exe" (
+    "%SCRIPT_DIR%.venv312\Scripts\python.exe" "%SCRIPT_DIR%app.py"
+) else if exist "%SCRIPT_DIR%venv\Scripts\python.exe" (
+    "%SCRIPT_DIR%venv\Scripts\python.exe" "%SCRIPT_DIR%app.py"
+) else (
+    python "%SCRIPT_DIR%app.py"
+)

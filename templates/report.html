@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Exam Report: {{ session.exam_name }}</h1>
+    <div>
+        <a href="{{ url_for('dashboard.dashboard') }}" class="btn btn-secondary btn-sm shadow-sm"><i class="fas fa-arrow-left fa-sm text-white-50"></i> Back to Dashboard</a>
+        <a href="{{ url_for('dashboard.export_session', session_id=session.id, export_format='json') }}" class="btn btn-outline-primary btn-sm"><i class="fas fa-file-code"></i> JSON</a>
+        <a href="{{ url_for('dashboard.export_session', session_id=session.id, export_format='csv') }}" class="btn btn-outline-primary btn-sm"><i class="fas fa-file-csv"></i> CSV</a>
+        <button onclick="window.print()" class="btn btn-primary btn-sm shadow-sm"><i class="fas fa-download fa-sm text-white-50"></i> Print / Save PDF</button>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Performance Summary -->
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-primary shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Final Score</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ session.score }} / {{ answers|length }}</div>
+                    </div>
+                    <div class="col-auto"><i class="fas fa-star fa-2x text-gray-300"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Integrity Score -->
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-{{ 'success' if session.integrity_score >= 75 else 'danger' }} shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-{{ 'success' if session.integrity_score >= 75 else 'danger' }} text-uppercase mb-1">Integrity Score</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ session.integrity_score }}</div>
+                    </div>
+                    <div class="col-auto"><i class="fas fa-shield-alt fa-2x text-gray-300"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Risk Level -->
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-{{ 'success' if session.integrity_score >= 75 else ('warning' if session.integrity_score >= 50 else 'danger') }} shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-{{ 'success' if session.risk_level == 'Low' else ('warning' if session.risk_level == 'Medium' else 'danger') }} text-uppercase mb-1">Risk Level</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{% if session.integrity_score >= 75 %}Low{% elif session.integrity_score >= 50 %}Medium{% else %}High{% endif %}</div>
+                    </div>
+                    <div class="col-auto"><i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Duration -->
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-info shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Duration</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">
+                            {% if session.exam_started_at and session.exam_completed_at %}
+                                {{ ((session.exam_completed_at - session.exam_started_at).total_seconds() / 60)|round(1) }} min
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-auto"><i class="fas fa-clock fa-2x text-gray-300"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Answers Breakdown -->
+    <div class="col-lg-7">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 bg-light">
+                <h6 class="m-0 font-weight-bold text-primary">Question Analysis</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="5%">#</th>
+                                <th width="45%">Question</th>
+                                <th width="20%">Your Answer</th>
+                                <th width="20%">Correct Answer</th>
+                                <th width="10%">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ans in answers %}
+                            <tr class="{{ 'table-success' if ans.is_correct else 'table-danger' }}">
+                                <td>{{ loop.index }}</td>
+                                <td>{{ ans.question.question }}</td>
+                                <td>{{ ans.selected_answer or 'Unanswered' }}</td>
+                                <td>{{ ans.question.correct_answer }}</td>
+                                <td class="text-center">
+                                    {% if ans.is_correct %}
+                                        <i class="fas fa-check-circle text-success fs-5"></i>
+                                    {% else %}
+                                        <i class="fas fa-times-circle text-danger fs-5"></i>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cheating Events -->
+    <div class="col-lg-5">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 bg-light d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-danger">Integrity Violation Log</h6>
+                <span class="badge bg-danger rounded-pill">{{ cheating_events|length }} Events</span>
+            </div>
+            <div class="card-body">
+                {% if cheating_events %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Event</th>
+                                    <th>Severity</th>
+                                    <th>Proof</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for event in cheating_events %}
+                                <tr>
+                                    <td>{{ event.timestamp.strftime('%H:%M:%S') }}</td>
+                                    <td>{{ event.event_type }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'danger' if event.severity in ['Critical', 'High'] else 'warning' }}">{{ event.severity }}</span>
+                                    </td>
+                                    <td>
+                                        {% if event.image_path %}
+                                            <a href="{{ url_for('static', filename='cheating_proofs/' + event.image_path) }}" target="_blank" class="btn btn-sm btn-outline-danger"><i class="fas fa-image"></i> View</a>
+                                        {% else %}
+                                            <span class="text-muted small">None</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-check-circle text-success" style="font-size: 3rem;"></i>
+                        <h5 class="mt-3 text-success">Perfect Integrity</h5>
+                        <p class="text-muted">No cheating events were detected during this session.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

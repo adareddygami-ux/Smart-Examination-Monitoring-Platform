@@ -1,0 +1,1101 @@
+{% extends "base.html" %}
+
+{% block page_title %}Candidate Dashboard{% endblock %}
+{% block breadcrumb %}Dashboard &rsaquo; Overview{% endblock %}
+
+{% block extra_head %}
+<style>
+/* Tab switcher */
+.eg-tab-bar { display:flex; gap:6px; background:#f1f5f9; padding:4px; border-radius:12px; margin-bottom:20px; }
+.eg-tab-btn {
+  flex:1; padding:9px 16px; border:none; background:transparent;
+  border-radius:9px; font-size:13px; font-weight:600; color:#64748b;
+  cursor:pointer; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:6px;
+}
+.eg-tab-btn.active { background:white; color:#4f46e5; box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+.eg-tab-panel { display:none; }
+.eg-tab-panel.active { display:block; }
+
+/* Severity icons */
+.sev-critical { color:#dc2626; }
+.sev-high { color:#ea580c; }
+.sev-medium { color:#d97706; }
+.sev-low { color:#16a34a; }
+
+/* Report card */
+.eg-report-card {
+  border:1px solid #e2e8f0; border-radius:14px; padding:18px 20px;
+  display:flex; align-items:center; gap:16px;
+  transition:all 0.2s; cursor:pointer; background:white; text-decoration:none;
+}
+.eg-report-card:hover { box-shadow:0 6px 20px rgba(79,70,229,0.12); transform:translateY(-2px); border-color:#c7d2fe; }
+
+.eg-report-icon {
+  width:50px; height:50px; border-radius:12px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; font-size:22px;
+}
+.eg-report-meta { flex:1; min-width:0; }
+.eg-report-title { font-size:14px; font-weight:700; color:#1e293b; }
+.eg-report-sub { font-size:12px; color:#64748b; margin-top:2px; }
+.eg-report-right { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+
+/* Scrollable violation list */
+.eg-vio-list { max-height:420px; overflow-y:auto; }
+.eg-vio-list::-webkit-scrollbar { width:5px; }
+.eg-vio-list::-webkit-scrollbar-thumb { background:#e2e8f0; border-radius:5px; }
+
+/* Violation row */
+.eg-vio-row {
+  display:flex; align-items:center; gap:14px; padding:14px 16px;
+  border-bottom:1px solid #f1f5f9; transition:background 0.15s;
+}
+.eg-vio-row:last-child { border-bottom:none; }
+.eg-vio-row:hover { background:#f8faff; }
+
+.eg-vio-num {
+  width:28px; height:28px; border-radius:50%; background:#f1f5f9;
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:700; color:#64748b; flex-shrink:0;
+}
+.eg-vio-icon { font-size:20px; flex-shrink:0; }
+.eg-vio-info { flex:1; min-width:0; }
+.eg-vio-type { font-size:13px; font-weight:700; color:#1e293b; }
+.eg-vio-desc { font-size:12px; color:#64748b; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.eg-vio-right { text-align:right; flex-shrink:0; }
+.eg-vio-time { font-size:11px; color:#94a3b8; margin-top:4px; }
+
+/* Hero violation banner */
+.eg-violation-hero {
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%);
+  border-radius:18px; padding:28px 32px; margin-bottom:20px;
+  display:flex; align-items:center; justify-content:space-between; gap:20px;
+  position:relative; overflow:hidden;
+}
+.eg-violation-hero::after {
+  content:'⚠️';
+  position:absolute; right:24px; bottom:-10px;
+  font-size:120px; opacity:0.07; line-height:1;
+}
+.eg-violation-hero-left h2 { font-size:22px; font-weight:800; color:white; margin-bottom:6px; }
+.eg-violation-hero-left p { font-size:13px; color:rgba(255,255,255,0.6); }
+.eg-violation-hero-stats { display:flex; gap:24px; }
+.eg-vhero-stat { text-align:center; }
+.eg-vhero-stat-val { font-size:30px; font-weight:900; line-height:1; }
+.eg-vhero-stat-label { font-size:11px; color:rgba(255,255,255,0.55); font-weight:600; margin-top:4px; text-transform:uppercase; letter-spacing:0.5px; }
+
+/* Report hero banner */
+.eg-report-hero {
+  background: linear-gradient(135deg, #064e3b 0%, #065f46 50%, #047857 100%);
+  border-radius:18px; padding:28px 32px; margin-bottom:20px;
+  display:flex; align-items:center; justify-content:space-between; gap:20px;
+  position:relative; overflow:hidden;
+}
+.eg-report-hero::after {
+  content:'📋';
+  position:absolute; right:24px; bottom:-10px;
+  font-size:120px; opacity:0.07; line-height:1;
+}
+.eg-report-hero-left h2 { font-size:22px; font-weight:800; color:white; margin-bottom:6px; }
+.eg-report-hero-left p { font-size:13px; color:rgba(255,255,255,0.6); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ==================== TOP STAT CARDS ==================== -->
+<div class="eg-stat-grid">
+  <div class="eg-stat-card stat-red">
+    <div class="eg-stat-icon">⚠️</div>
+    <div class="eg-stat-value">{{ all_violations|length }}</div>
+    <div class="eg-stat-label">Total Violations</div>
+    <div class="eg-stat-trend" style="color:#dc2626;"><i class="fa fa-triangle-exclamation"></i> All flagged events</div>
+  </div>
+  <div class="eg-stat-card stat-purple">
+    <div class="eg-stat-icon">📋</div>
+    <div class="eg-stat-value">{{ sessions_with_reports|length }}</div>
+    <div class="eg-stat-label">Reports Available</div>
+    <div class="eg-stat-trend" style="color:#7c3aed;"><i class="fa fa-file-alt"></i> Completed sessions</div>
+  </div>
+  <div class="eg-stat-card stat-blue">
+    <div class="eg-stat-icon">🛡️</div>
+    <div class="eg-stat-value">{{ summary.avg_integrity }}</div>
+    <div class="eg-stat-label">Avg Integrity Score</div>
+    <div class="eg-stat-trend" style="color:#2563eb;"><i class="fa fa-shield-halved"></i> Out of 100</div>
+  </div>
+  <div class="eg-stat-card stat-green">
+    <div class="eg-stat-icon">✅</div>
+    <div class="eg-stat-value">{{ summary.completed }}</div>
+    <div class="eg-stat-label">Exams Completed</div>
+    <div class="eg-stat-trend" style="color:#059669;"><i class="fa fa-circle-check"></i> Successfully done</div>
+  </div>
+  <div class="eg-stat-card stat-amber">
+    <div class="eg-stat-icon">📊</div>
+    <div class="eg-stat-value">{{ summary.total }}</div>
+    <div class="eg-stat-label">Total Sessions</div>
+    <div class="eg-stat-trend" style="color:#d97706;"><i class="fa fa-chart-line"></i> All tracked</div>
+  </div>
+</div>
+
+
+<!-- ==================== MAIN TAB SWITCHER ==================== -->
+<div class="eg-tab-bar" style="flex-wrap:wrap;">
+  <button class="eg-tab-btn" onclick="switchTab('violations', this)">
+    ⚠️ Violations <span class="eg-nav-badge" style="background:#ef4444;">{{ all_violations|length }}</span>
+  </button>
+  <button class="eg-tab-btn" onclick="switchTab('reports', this)">
+    📋 Reports <span class="eg-nav-badge" style="background:#7c3aed;">{{ sessions_with_reports|length }}</span>
+  </button>
+  <button class="eg-tab-btn" onclick="switchTab('assessments', this)">
+    🎯 Assessments
+  </button>
+  <button class="eg-tab-btn" onclick="switchTab('analytics', this)">
+    📈 Analytics
+  </button>
+  <button class="eg-tab-btn" onclick="switchTab('monitoring', this)">
+    🎥 Monitoring <span class="eg-nav-badge" style="background:#0891b2;">{{ monitoring_summary.total }}</span>
+  </button>
+  <button class="eg-tab-btn active" onclick="switchTab('overview', this)">
+    📊 Overview
+  </button>
+  <button class="eg-tab-btn" onclick="switchTab('history', this)">
+    🗂️ History
+  </button>
+</div>
+
+
+<!-- ==================== TAB: VIOLATIONS ==================== -->
+<div id="tab-violations" class="eg-tab-panel">
+
+  <!-- Hero Banner -->
+  <div class="eg-violation-hero">
+    <div class="eg-violation-hero-left">
+      <h2>Violations &amp; Integrity Alerts</h2>
+      <p>All suspicious events detected by the AI proctoring engine during your exam sessions</p>
+    </div>
+    <div class="eg-violation-hero-stats">
+      {% set crit = all_violations|selectattr('severity','equalto','Critical')|list|length %}
+      {% set high = all_violations|selectattr('severity','equalto','High')|list|length %}
+      {% set med = all_violations|selectattr('severity','equalto','Medium')|list|length %}
+      {% set low = all_violations|selectattr('severity','equalto','Low')|list|length %}
+      <div class="eg-vhero-stat">
+        <div class="eg-vhero-stat-val" style="color:#f87171;">{{ crit }}</div>
+        <div class="eg-vhero-stat-label">Critical</div>
+      </div>
+      <div class="eg-vhero-stat">
+        <div class="eg-vhero-stat-val" style="color:#fb923c;">{{ high }}</div>
+        <div class="eg-vhero-stat-label">High</div>
+      </div>
+      <div class="eg-vhero-stat">
+        <div class="eg-vhero-stat-val" style="color:#fbbf24;">{{ med }}</div>
+        <div class="eg-vhero-stat-label">Medium</div>
+      </div>
+      <div class="eg-vhero-stat">
+        <div class="eg-vhero-stat-val" style="color:#4ade80;">{{ low }}</div>
+        <div class="eg-vhero-stat-label">Low</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Violations List + Chart side by side -->
+  <div class="row g-3">
+    <div class="col-xl-8">
+      <div class="eg-card">
+        <div class="eg-card-header">
+          <span class="eg-card-title"><i class="fa fa-list" style="color:#ef4444;"></i> All Violation Records</span>
+          <span style="font-size:12px; color:#64748b;">Sorted newest first</span>
+        </div>
+        <div class="eg-vio-list">
+          {% if all_violations %}
+            {% for v in all_violations %}
+            <div class="eg-vio-row">
+              <div class="eg-vio-num">#{{ loop.index }}</div>
+              <div class="eg-vio-icon">
+                {% if v.violation_type == 'EXCESSIVE_TAB_SWITCH' %}🔄
+                {% elif v.violation_type == 'EXCESSIVE_FOCUS_LOSS' %}👁️
+                {% elif 'FACE' in v.violation_type %}😶
+                {% elif 'MULTIPLE' in v.violation_type %}👥
+                {% elif 'EYE' in v.violation_type %}👀
+                {% else %}⚠️{% endif %}
+              </div>
+              <div class="eg-vio-info">
+                <div class="eg-vio-type">{{ v.violation_type|replace('_',' ')|title }}</div>
+                <div class="eg-vio-desc">{{ v.description or 'Detected by proctoring engine' }}</div>
+              </div>
+              <div class="eg-vio-right">
+                <span class="eg-risk-badge 
+                  {% if v.severity == 'Critical' %}risk-high
+                  {% elif v.severity == 'High' %}risk-high
+                  {% elif v.severity == 'Medium' %}risk-medium
+                  {% else %}risk-low{% endif %}"
+                  style="font-size:10px; padding:2px 8px;">
+                  {% if v.severity == 'Critical' %}🔴{% elif v.severity == 'High' %}🟠{% elif v.severity == 'Medium' %}🟡{% else %}🟢{% endif %}
+                  {{ v.severity }}
+                </span>
+                <div class="eg-vio-time">
+                  {{ v.timestamp.strftime('%b %d, %H:%M') if v.timestamp else '—' }}
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div style="text-align:center; padding:60px 20px;">
+              <div style="font-size:52px; margin-bottom:14px;">✅</div>
+              <div style="font-size:16px; font-weight:700; color:#1e293b;">No Violations Found!</div>
+              <div style="font-size:13px; color:#64748b; margin-top:6px;">Your exam sessions are completely clean. Great integrity!</div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Violation Analytics -->
+    <div class="col-xl-4">
+      <div class="eg-card mb-3">
+        <div class="eg-card-header">
+          <span class="eg-card-title">📊 By Severity</span>
+        </div>
+        <div class="eg-card-body">
+          <canvas id="severityDonut" height="200"></canvas>
+        </div>
+      </div>
+
+      <div class="eg-card">
+        <div class="eg-card-header">
+          <span class="eg-card-title">📊 By Type</span>
+        </div>
+        <div class="eg-card-body">
+          <canvas id="typeBar" height="220"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ==================== TAB: REPORTS ==================== -->
+<div id="tab-reports" class="eg-tab-panel">
+
+  <!-- Hero Banner -->
+  <div class="eg-report-hero">
+    <div class="eg-report-hero-left">
+      <h2>Exam Session Reports</h2>
+      <p>Detailed integrity analysis reports for every completed exam session</p>
+    </div>
+    <div style="display:flex; gap:16px; align-items:center;">
+      <div style="text-align:center;">
+        <div style="font-size:32px; font-weight:900; color:#6ee7b7;">{{ sessions_with_reports|length }}</div>
+        <div style="font-size:11px; color:rgba(255,255,255,0.55); font-weight:600; text-transform:uppercase;">Reports Ready</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:32px; font-weight:900; color:white;">{{ summary.avg_integrity }}</div>
+        <div style="font-size:11px; color:rgba(255,255,255,0.55); font-weight:600; text-transform:uppercase;">Avg Score</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Report Cards Grid -->
+  {% if sessions_with_reports %}
+  <div class="row g-3">
+    {% for session in sessions_with_reports %}
+    <div class="col-xl-6">
+      <a href="{{ url_for('dashboard.report', session_id=session.id) }}" class="eg-report-card" style="text-decoration:none;">
+        <div class="eg-report-icon" style="background:{% if session.integrity_score >= 75 %}#d1fae5{% elif session.integrity_score >= 50 %}#fef3c7{% else %}#fee2e2{% endif %};">
+          {% if session.integrity_score >= 75 %}✅{% elif session.integrity_score >= 50 %}⚠️{% else %}🔴{% endif %}
+        </div>
+        <div class="eg-report-meta">
+          <div class="eg-report-title">{{ session.exam_name }}</div>
+          <div class="eg-report-sub">
+            📅 {{ session.login_time.strftime('%b %d, %Y — %H:%M') }}
+            &nbsp;·&nbsp;
+            {% if session.exam_started_at and session.exam_completed_at %}
+              ⏱ {{ ((session.exam_completed_at - session.exam_started_at).total_seconds() / 60)|round(1) }} min
+            {% endif %}
+          </div>
+          <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
+            <span style="font-size:11px; background:#f1f5f9; padding:2px 8px; border-radius:10px; color:#475569; font-weight:600;">
+              📊 Score: {{ session.score }}
+            </span>
+            <span style="font-size:11px; background:#f1f5f9; padding:2px 8px; border-radius:10px; color:#475569; font-weight:600;">
+              🔀 Tabs: {{ session.tab_switches }}
+            </span>
+            <span style="font-size:11px; background:#f1f5f9; padding:2px 8px; border-radius:10px; color:#475569; font-weight:600;">
+              👁 Focus: {{ session.focus_losses }}
+            </span>
+            <span style="font-size:11px; background:#f1f5f9; padding:2px 8px; border-radius:10px; color:#475569; font-weight:600;">
+              ⚠️ Violations: {{ session.violation_count }}
+            </span>
+          </div>
+        </div>
+        <div class="eg-report-right">
+          <div style="font-size:26px; font-weight:900; color:{% if session.integrity_score >= 75 %}#059669{% elif session.integrity_score >= 50 %}#d97706{% else %}#dc2626{% endif %};">
+            {{ session.integrity_score }}
+          </div>
+          <div style="font-size:10px; color:#94a3b8; font-weight:600; margin-bottom:4px;">INTEGRITY</div>
+          <span class="eg-risk-badge risk-{% if session.integrity_score >= 75 %}low{% elif session.integrity_score >= 50 %}medium{% else %}high{% endif %}" style="font-size:10px; padding:2px 8px;">
+            {% if session.integrity_score >= 75 %}Low{% elif session.integrity_score >= 50 %}Medium{% else %}High{% endif %}
+          </span>
+          <div style="margin-top:8px;">
+            <span class="eg-btn eg-btn-primary eg-btn-sm">
+              <i class="fa fa-eye"></i> View Report
+            </span>
+          </div>
+        </div>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <div class="eg-card">
+    <div class="eg-card-body" style="text-align:center; padding:60px 20px;">
+      <div style="font-size:52px; margin-bottom:16px;">📋</div>
+      <div style="font-size:18px; font-weight:700; color:#1e293b; margin-bottom:8px;">No Reports Yet</div>
+      <div style="font-size:14px; color:#64748b; margin-bottom:20px;">Complete an exam to generate your first integrity report.</div>
+      <a href="{{ url_for('exam.verify') }}" class="eg-btn eg-btn-primary">
+        <i class="fa fa-play"></i> Start Your Exam
+      </a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+
+<!-- ==================== TAB: OVERVIEW ==================== -->
+<div id="tab-overview" class="eg-tab-panel active">
+  <div class="row g-3">
+
+    <!-- Profile + Integrity Ring -->
+    <div class="col-xl-4">
+      <div class="eg-card mb-3">
+        <div class="eg-card-header">
+          <span class="eg-card-title"><i class="fa fa-user-circle" style="color:#4f46e5;"></i> My Profile</span>
+        </div>
+        <div class="eg-profile-card">
+          {% if current_user.photo_path %}
+            <img src="{{ url_for('static', filename='photos/' + current_user.photo_path) }}" class="eg-profile-avatar" alt="Profile">
+          {% else %}
+            <div class="eg-profile-initials">{{ current_user.full_name[0]|upper }}</div>
+          {% endif %}
+          <div class="eg-profile-name">{{ current_user.full_name }}</div>
+          <div class="eg-profile-email">{{ current_user.email }}</div>
+          <div class="eg-mini-pills" style="justify-content:center; margin-top:10px;">
+            <div class="eg-mini-pill">
+              <div class="eg-mini-pill-dot" style="background:#10b981;"></div>
+              Active
+            </div>
+            <div class="eg-mini-pill">
+              <div class="eg-mini-pill-dot" style="background:#4f46e5;"></div>
+              {{ current_user.created_at.strftime('%Y-%m-%d') }}
+            </div>
+          </div>
+        </div>
+        <div class="eg-action-wrap">
+          <a href="{{ url_for('auth.logout') }}" class="eg-btn eg-btn-outline" style="font-size:12px;">
+            <i class="fa fa-right-from-bracket"></i> Sign Out
+          </a>
+          <a href="{{ url_for('exam.verify') }}" class="eg-btn eg-btn-primary" style="font-size:12px;">
+            <i class="fa fa-play"></i> Start Exam
+          </a>
+        </div>
+      </div>
+
+      <!-- Integrity Ring -->
+      <div class="eg-card">
+        <div class="eg-card-header">
+          <span class="eg-card-title"><i class="fa fa-shield-halved" style="color:#4f46e5;"></i> Integrity Score</span>
+        </div>
+        <div class="eg-integrity-ring-wrap">
+          <div class="eg-ring-canvas">
+            <canvas id="integrityRing" width="160" height="160"></canvas>
+            <div class="eg-ring-center">
+              <div class="eg-ring-score" style="color:{% if summary.avg_integrity >= 75 %}#10b981{% elif summary.avg_integrity >= 50 %}#f59e0b{% else %}#ef4444{% endif %};">{{ summary.avg_integrity }}</div>
+              <div class="eg-ring-sub">/ 100</div>
+            </div>
+          </div>
+          <div style="margin-top:16px;">
+            {% if summary.avg_integrity >= 75 %}
+              <span class="eg-risk-badge risk-low">✅ Low Risk Candidate</span>
+            {% elif summary.avg_integrity >= 50 %}
+              <span class="eg-risk-badge risk-medium">⚠️ Medium Risk</span>
+            {% else %}
+              <span class="eg-risk-badge risk-high">🔴 High Risk</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Session + Clusters + Login History -->
+    <div class="col-xl-8">
+
+      <!-- Active Session -->
+      <div class="eg-card mb-3">
+        <div class="eg-card-header">
+          <span class="eg-card-title">
+            {% if active_session %}
+              <span style="width:9px;height:9px;border-radius:50%;background:#10b981;display:inline-block;animation:pulse-dot 1.5s infinite;"></span>
+            {% else %}
+              <i class="fa fa-laptop-code" style="color:#4f46e5;"></i>
+            {% endif %}
+            Current Exam Session
+          </span>
+          {% if active_session %}
+            <span class="eg-risk-badge risk-low" style="font-size:11px;">LIVE</span>
+          {% endif %}
+        </div>
+        {% if active_session %}
+        <div class="eg-card-body">
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <div style="background:#f8fafc; border-radius:10px; padding:12px; border:1px solid #e2e8f0;">
+                <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">Exam Name</div>
+                <div style="font-size:14px; font-weight:700;">{{ active_session.exam_name }}</div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div style="background:#f8fafc; border-radius:10px; padding:12px; border:1px solid #e2e8f0;">
+                <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">Status</div>
+                <span class="eg-risk-badge risk-low" style="font-size:11px;">{{ active_session.status }}</span>
+              </div>
+            </div>
+            <div class="col-6">
+              <div style="background:#f8fafc; border-radius:10px; padding:12px; border:1px solid #e2e8f0;">
+                <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">Integrity</div>
+                <div style="font-size:22px; font-weight:900; color:{% if active_session.integrity_score >= 75 %}#10b981{% else %}#ef4444{% endif %};">{{ active_session.integrity_score }}</div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div style="background:#f8fafc; border-radius:10px; padding:12px; border:1px solid #e2e8f0;">
+                <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">Risk Level</div>
+                <span class="eg-risk-badge risk-{% if active_session.integrity_score >= 75 %}low{% elif active_session.integrity_score >= 50 %}medium{% else %}high{% endif %}" style="font-size:11px;">{% if active_session.integrity_score >= 75 %}Low{% elif active_session.integrity_score >= 50 %}Medium{% else %}High{% endif %}</span>
+              </div>
+            </div>
+          </div>
+          {% if active_monitoring %}
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px;">
+            {% for label, val, col in [('Tab Switches', active_monitoring.tab_switches,'#ef4444'),('Focus Loss',active_monitoring.focus_loss,'#f59e0b'),('Face Absent',active_monitoring.face_absence,'#f97316'),('Multi Faces',active_monitoring.multiple_faces,'#dc2626'),('Eyes Off',active_monitoring.eyes_not_detected,'#8b5cf6'),('Violations',active_monitoring.total_violations,'#ef4444')] %}
+            <div style="background:#f8fafc; border-radius:8px; padding:10px; border:1px solid #e2e8f0; text-align:center;">
+              <div style="font-size:18px; font-weight:800; color:{{ col }};">{{ val }}</div>
+              <div style="font-size:10px; color:#64748b; font-weight:600;">{{ label }}</div>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+          <div class="eg-action-wrap" style="margin:16px -20px -20px; padding:14px 20px;">
+            {% if active_session.status == 'SESSION CREATED' %}
+              <a href="{{ url_for('exam.verify') }}" class="eg-btn eg-btn-warning"><i class="fa fa-camera"></i> Verify Identity</a>
+            {% elif active_session.status == 'READY TO START' %}
+              <form action="{{ url_for('exam.start') }}" method="POST" style="display:inline;">
+                <button type="submit" class="eg-btn eg-btn-success"><i class="fa fa-play"></i> Start Exam</button>
+              </form>
+            {% elif active_session.status in ['EXAM STARTED', 'EXAM RESUMED'] %}
+              <a href="{{ url_for('exam.play', idx=0) }}" class="eg-btn eg-btn-primary"><i class="fa fa-laptop-code"></i> Return to Exam</a>
+              <form action="{{ url_for('dashboard.session_action', action='pause') }}" method="POST" style="display:inline;">
+                <button type="submit" class="eg-btn eg-btn-warning"><i class="fa fa-pause"></i> Pause</button>
+              </form>
+              <form action="{{ url_for('dashboard.session_action', action='submit') }}" method="POST" style="display:inline;">
+                <button type="submit" class="eg-btn eg-btn-danger" onclick="return confirm('End exam?');"><i class="fa fa-stop"></i> End Exam</button>
+              </form>
+            {% elif active_session.status == 'EXAM PAUSED' %}
+              <form action="{{ url_for('dashboard.session_action', action='resume') }}" method="POST" style="display:inline;">
+                <button type="submit" class="eg-btn eg-btn-success"><i class="fa fa-play"></i> Resume</button>
+              </form>
+              <form action="{{ url_for('dashboard.session_action', action='submit') }}" method="POST" style="display:inline;">
+                <button type="submit" class="eg-btn eg-btn-danger" onclick="return confirm('End exam?');"><i class="fa fa-stop"></i> End</button>
+              </form>
+            {% endif %}
+          </div>
+        </div>
+        {% else %}
+        <div class="eg-card-body" style="text-align:center; padding:36px 20px;">
+          <div style="font-size:40px; margin-bottom:12px;">🎓</div>
+          <div style="font-size:15px; font-weight:700; margin-bottom:6px;">No Active Session</div>
+          <div style="font-size:13px; color:#64748b; margin-bottom:16px;">Start a new exam to begin monitoring.</div>
+          <a href="{{ url_for('exam.verify') }}" class="eg-btn eg-btn-primary"><i class="fa fa-arrow-right"></i> Begin Exam</a>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Clusters + Login History side by side -->
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="eg-card h-100">
+            <div class="eg-card-header">
+              <span class="eg-card-title">🧠 Behaviour Clusters</span>
+            </div>
+            <div class="eg-card-body">
+              {% if cluster_counts %}
+              <div class="eg-cluster-grid">
+                {% for cname, ccount in cluster_counts.items() %}
+                <div class="eg-cluster-item">
+                  <div class="eg-cluster-count">{{ ccount }}</div>
+                  <div class="eg-cluster-label">{{ cname }}</div>
+                </div>
+                {% endfor %}
+              </div>
+              {% else %}
+              <div style="text-align:center; color:#64748b; font-size:13px; padding:20px 0;">Complete more exams to generate cluster analysis.</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="eg-card h-100">
+            <div class="eg-card-header">
+              <span class="eg-card-title">🕐 Recent Logins</span>
+            </div>
+            <div class="eg-card-body" style="padding:0;">
+              <table class="eg-table">
+                <thead><tr><th>Time</th><th>IP</th><th>Status</th></tr></thead>
+                <tbody>
+                  {% for log in recent_logins %}
+                  <tr>
+                    <td style="font-size:12px;">{{ log.login_time.strftime('%b %d %H:%M') }}</td>
+                    <td><code style="font-size:10px; background:#f1f5f9; padding:1px 5px; border-radius:4px;">{{ log.ip_address or 'N/A' }}</code></td>
+                    <td><span class="eg-risk-badge {% if log.status == 'SUCCESS' %}risk-low{% else %}risk-high{% endif %}" style="font-size:10px; padding:2px 7px;">{{ log.status }}</span></td>
+                  </tr>
+                  {% else %}
+                  <tr><td colspan="3" style="text-align:center; color:#64748b; padding:20px; font-size:13px;">No logins yet.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ==================== TAB: SESSION HISTORY ==================== -->
+<div id="tab-history" class="eg-tab-panel">
+  <div class="eg-card">
+    <div class="eg-card-header">
+      <span class="eg-card-title"><i class="fa fa-table-list" style="color:#4f46e5;"></i> Full Session History</span>
+      <span style="font-size:12px; color:#64748b;">{{ all_sessions|length }} total session(s)</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="eg-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Exam Name</th>
+            <th>Date</th>
+            <th>Score</th>
+            <th>Integrity</th>
+            <th>Tabs</th>
+            <th>Focus Loss</th>
+            <th>Violations</th>
+            <th>Cluster</th>
+            <th>Risk</th>
+            <th>Status</th>
+            <th>Report</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for session in all_sessions %}
+          <tr>
+            <td style="color:#94a3b8; font-size:12px;">{{ loop.index }}</td>
+            <td><strong>{{ session.exam_name }}</strong></td>
+            <td>{{ session.login_time.strftime('%Y-%m-%d') }}</td>
+            <td><strong>{{ session.score }}</strong></td>
+            <td>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <div style="width:40px; height:6px; background:#e2e8f0; border-radius:3px; overflow:hidden;">
+                  <div style="height:100%; width:{{ session.integrity_score }}%; background:{% if session.integrity_score >= 75 %}#10b981{% elif session.integrity_score >= 50 %}#f59e0b{% else %}#ef4444{% endif %};border-radius:3px;"></div>
+                </div>
+                <span style="font-weight:700;">{{ session.integrity_score }}</span>
+              </div>
+            </td>
+            <td>{{ session.tab_switches }}</td>
+            <td>{{ session.focus_losses }}</td>
+            <td><span style="font-weight:700; color:{% if session.violation_count > 0 %}#ef4444{% else %}#10b981{% endif %};">{{ session.violation_count }}</span></td>
+            <td>
+              {% if session.behaviour_cluster %}
+                <span style="background:#ede9fe; color:#7c3aed; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:700;">{{ session.behaviour_cluster }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              <span class="eg-risk-badge risk-{% if session.integrity_score >= 75 %}low{% elif session.integrity_score >= 50 %}medium{% else %}high{% endif %}" style="font-size:10px; padding:2px 8px;">{% if session.integrity_score >= 75 %}Low{% elif session.integrity_score >= 50 %}Medium{% else %}High{% endif %}</span>
+            </td>
+            <td>
+              <span class="eg-risk-badge {% if session.status in ['SESSION COMPLETED', 'EXAM SUBMITTED'] %}risk-low{% else %}risk-medium{% endif %}" style="font-size:10px; padding:2px 6px;">
+                {{ session.status|replace('SESSION ','')|replace('EXAM ','') }}
+              </span>
+            </td>
+            <td>
+              {% if session.status in ['SESSION COMPLETED', 'EXAM SUBMITTED'] %}
+                <a href="{{ url_for('dashboard.report', session_id=session.id) }}" class="eg-btn eg-btn-primary eg-btn-sm">
+                  <i class="fa fa-file-alt"></i> View
+                </a>
+              {% else %}
+                <span style="font-size:11px; color:#64748b;">In Progress</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="12" style="text-align:center; padding:40px; color:#64748b;">
+              No exam sessions yet. <a href="{{ url_for('exam.verify') }}" style="color:#4f46e5; font-weight:600;">Start your first exam →</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<!-- ==================== TAB: ASSESSMENTS ==================== -->
+<div id="tab-assessments" class="eg-tab-panel">
+  <div class="row g-3 mb-3">
+    <!-- Stats -->
+    <div class="col-xl-3 col-md-6">
+      <div class="eg-card" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white;border:none;">
+        <div class="eg-card-body" style="text-align:center; padding:28px 20px;">
+          <div style="font-size:40px; margin-bottom:10px;">🎯</div>
+          <div style="font-size:32px; font-weight:900;">{{ questions|length }}</div>
+          <div style="font-size:13px; opacity:0.8; margin-top:4px;">Questions in Bank</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="eg-card" style="background:linear-gradient(135deg,#059669,#10b981);color:white;border:none;">
+        <div class="eg-card-body" style="text-align:center; padding:28px 20px;">
+          <div style="font-size:40px; margin-bottom:10px;">✅</div>
+          <div style="font-size:32px; font-weight:900;">{{ candidate_answers|length }}</div>
+          <div style="font-size:13px; opacity:0.8; margin-top:4px;">Answers Submitted</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="eg-card" style="background:linear-gradient(135deg,#d97706,#f59e0b);color:white;border:none;">
+        <div class="eg-card-body" style="text-align:center; padding:28px 20px;">
+          <div style="font-size:40px; margin-bottom:10px;">📝</div>
+          <div style="font-size:32px; font-weight:900;">{{ summary.completed }}</div>
+          <div style="font-size:13px; opacity:0.8; margin-top:4px;">Exams Attempted</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="eg-card" style="background:linear-gradient(135deg,#0891b2,#06b6d4);color:white;border:none;">
+        <div class="eg-card-body" style="text-align:center; padding:28px 20px;">
+          <div style="font-size:40px; margin-bottom:10px;">⭐</div>
+          <div style="font-size:32px; font-weight:900;">
+            {% if candidate_answers %}
+              {{ ((candidate_answers|selectattr('is_correct')|list|length) / candidate_answers|length * 100)|round(0)|int }}%
+            {% else %}—{% endif %}
+          </div>
+          <div style="font-size:13px; opacity:0.8; margin-top:4px;">Accuracy Rate</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <!-- Question Bank -->
+    <div class="col-xl-8">
+      <div class="eg-card">
+        <div class="eg-card-header">
+          <span class="eg-card-title">🎯 Question Bank ({{ questions|length }} Questions)</span>
+          <a href="{{ url_for('exam.verify') }}" class="eg-btn eg-btn-primary eg-btn-sm">
+            <i class="fa fa-play"></i> Take Exam
+          </a>
+        </div>
+        <div style="max-height:480px; overflow-y:auto;">
+          <table class="eg-table">
+            <thead><tr><th>#</th><th>Question</th><th>Category</th><th>Difficulty</th></tr></thead>
+            <tbody>
+              {% for q in questions %}
+              <tr>
+                <td style="color:#94a3b8; font-size:12px; width:40px;">{{ loop.index }}</td>
+                <td style="font-size:13px; max-width:400px;">{{ q.question[:90] }}{% if q.question|length > 90 %}…{% endif %}</td>
+                <td>
+                  <span style="background:#ede9fe; color:#7c3aed; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600;">
+                    {{ q.category or 'General' }}
+                  </span>
+                </td>
+                <td>
+                  <span class="eg-risk-badge 
+                    {% if q.difficulty == 'Hard' %}risk-high
+                    {% elif q.difficulty == 'Easy' %}risk-low
+                    {% else %}risk-medium{% endif %}" style="font-size:10px; padding:2px 8px;">
+                    {{ q.difficulty or 'Medium' }}
+                  </span>
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="4" style="text-align:center; color:#64748b; padding:30px;">No questions in bank yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- My Answers Summary -->
+    <div class="col-xl-4">
+      <div class="eg-card h-100">
+        <div class="eg-card-header">
+          <span class="eg-card-title">📊 My Answer History</span>
+        </div>
+        <div class="eg-card-body">
+          {% if candidate_answers %}
+          <canvas id="answersDonut" height="200"></canvas>
+          <div style="margin-top:16px;">
+            {% set correct = candidate_answers|selectattr('is_correct')|list|length %}
+            {% set wrong = candidate_answers|length - correct %}
+            <div class="eg-progress-wrap">
+              <div class="eg-progress-label"><span>✅ Correct</span><span style="color:#10b981;">{{ correct }}</span></div>
+              <div class="eg-progress-bar"><div class="eg-progress-fill" style="background:#10b981; width:{{ (correct/candidate_answers|length*100)|round(0) }}%;"></div></div>
+            </div>
+            <div class="eg-progress-wrap" style="margin-bottom:0;">
+              <div class="eg-progress-label"><span>❌ Wrong</span><span style="color:#ef4444;">{{ wrong }}</span></div>
+              <div class="eg-progress-bar"><div class="eg-progress-fill" style="background:#ef4444; width:{{ (wrong/candidate_answers|length*100)|round(0) }}%;"></div></div>
+            </div>
+          </div>
+          {% else %}
+          <div style="text-align:center; padding:40px 0; color:#64748b;">
+            <div style="font-size:40px; margin-bottom:12px;">📝</div>
+            <div>No answers recorded yet.</div>
+            <a href="{{ url_for('exam.verify') }}" class="eg-btn eg-btn-primary eg-btn-sm" style="margin-top:12px;">Take Exam</a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ==================== TAB: ANALYTICS ==================== -->
+<div id="tab-analytics" class="eg-tab-panel">
+  <!-- Top summary -->
+  <div class="row g-3 mb-3">
+    <div class="col-12">
+      <div style="background:linear-gradient(135deg,#1e1b4b,#312e81); border-radius:18px; padding:24px 32px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px;">
+        <div>
+          <h2 style="color:white; font-size:20px; font-weight:800; margin-bottom:6px;">📈 Performance Analytics</h2>
+          <p style="color:rgba(255,255,255,0.6); font-size:13px; margin:0;">In-depth analysis of your exam performance, integrity trends, and behavioural patterns</p>
+        </div>
+        <div style="display:flex; gap:20px; flex-wrap:wrap;">
+          {% for label, val, col in [('Avg Integrity', summary.avg_integrity, '#818cf8'), ('Exams Done', summary.completed, '#6ee7b7'), ('Violations', all_violations|length, '#fca5a5')] %}
+          <div style="text-align:center;">
+            <div style="font-size:28px; font-weight:900; color:{{ col }};">{{ val }}</div>
+            <div style="font-size:11px; color:rgba(255,255,255,0.5); font-weight:600; text-transform:uppercase;">{{ label }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <!-- Integrity Score Trend -->
+    <div class="col-xl-6">
+      <div class="eg-card">
+        <div class="eg-card-header">
+          <span class="eg-card-title"><i class="fa fa-chart-line" style="color:#4f46e5;"></i> Integrity Score Trend</span>
+        </div>
+        <div class="eg-card-body"><canvas id="analyticsTrend" height="220"></canvas></div>
+      </div>
+    </div>
+    <!-- Exam Score Trend -->
+    <div class="col-xl-6">
+      <div class="eg-card">
+        <div class="eg-card-header">
+          <span class="eg-card-title"><i class="fa fa-chart-bar" style="color:#10b981;"></i> Exam Score per Session</span>
+        </div>
+        <div class="eg-card-body"><canvas id="analyticsScores" height="220"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <!-- Violations per session -->
+    <div class="col-xl-6">
+      <div class="eg-card">
+        <div class="eg-card-header">
+          <span class="eg-card-title"><i class="fa fa-triangle-exclamation" style="color:#ef4444;"></i> Violations per Session</span>
+        </div>
+        <div class="eg-card-body"><canvas id="analyticsViolations" height="200"></canvas></div>
+      </div>
+    </div>
+    <!-- Behaviour cluster pie -->
+    <div class="col-xl-6">
+      <div class="eg-card">
+        <div class="eg-card-header">
+          <span class="eg-card-title"><i class="fa fa-chart-pie" style="color:#7c3aed;"></i> Behaviour Cluster Distribution</span>
+        </div>
+        <div class="eg-card-body">
+          {% if cluster_counts %}
+            <canvas id="clusterPie" height="200"></canvas>
+          {% else %}
+            <div style="text-align:center; padding:40px 0; color:#64748b;">
+              <div style="font-size:36px; margin-bottom:10px;">🧠</div>
+              <div>Complete more exams to see cluster analysis</div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab-Switch & Focus Loss combined line -->
+  <div class="eg-card">
+    <div class="eg-card-header">
+      <span class="eg-card-title"><i class="fa fa-chart-area" style="color:#0891b2;"></i> Tab Switches &amp; Focus Loss Over Sessions</span>
+    </div>
+    <div class="eg-card-body"><canvas id="analyticsTabFocus" height="160"></canvas></div>
+  </div>
+</div>
+
+
+<!-- ==================== TAB: MONITORING ==================== -->
+<div id="tab-monitoring" class="eg-tab-panel">
+  <!-- Hero banner -->
+  <div style="background:linear-gradient(135deg,#134e4a,#0f766e,#0d9488); border-radius:18px; padding:24px 32px; margin-bottom:20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; position:relative; overflow:hidden;">
+    <div style="position:absolute;right:20px;bottom:-10px;font-size:100px;opacity:0.07;">🎥</div>
+    <div>
+      <h2 style="color:white; font-size:20px; font-weight:800; margin-bottom:6px;">🎥 Live Monitoring Events</h2>
+      <p style="color:rgba(255,255,255,0.6); font-size:13px; margin:0;">Every webcam &amp; browser event captured by the proctoring engine</p>
+    </div>
+    <div style="display:flex; gap:20px; flex-wrap:wrap;">
+      {% for label, val, col in [
+        ('Tab Switches', monitoring_summary.tab_switch, '#5eead4'),
+        ('Focus Lost', monitoring_summary.focus_lost, '#fde68a'),
+        ('Face Absent', monitoring_summary.face_absent, '#fca5a5'),
+        ('Multi Faces', monitoring_summary.multiple_faces, '#f9a8d4'),
+        ('Eyes Off', monitoring_summary.eyes_not_detected, '#c4b5fd'),
+        ('Total Events', monitoring_summary.total, 'white')
+      ] %}
+      <div style="text-align:center;">
+        <div style="font-size:24px; font-weight:900; color:{{ col }};">{{ val }}</div>
+        <div style="font-size:10px; color:rgba(255,255,255,0.5); font-weight:600; text-transform:uppercase; margin-top:2px;">{{ label }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <!-- Event type breakdown chart -->
+    <div class="col-xl-4">
+      <div class="eg-card mb-3">
+        <div class="eg-card-header">
+          <span class="eg-card-title">📊 Event Breakdown</span>
+        </div>
+        <div class="eg-card-body"><canvas id="monitoringBar" height="220"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Full event log -->
+    <div class="col-xl-8">
+      <div class="eg-card">
+        <div class="eg-card-header">
+          <span class="eg-card-title">📋 Full Monitoring Log</span>
+          <span style="font-size:12px; color:#64748b;">{{ all_monitoring_events|length }} events recorded</span>
+        </div>
+        <div style="max-height:520px; overflow-y:auto;">
+          <table class="eg-table">
+            <thead><tr><th>#</th><th>Event Type</th><th>Severity</th><th>Duration</th><th>Timestamp</th><th>Description</th></tr></thead>
+            <tbody>
+              {% for ev in all_monitoring_events %}
+              <tr>
+                <td style="color:#94a3b8; font-size:11px;">{{ loop.index }}</td>
+                <td>
+                  <span style="font-weight:600; font-size:12px;">
+                    {% if ev.event_type == 'TAB_SWITCH' %}🔄
+                    {% elif ev.event_type == 'FOCUS_LOST' %}👁️
+                    {% elif ev.event_type == 'FACE_ABSENT' %}😶
+                    {% elif ev.event_type == 'MULTIPLE_FACES' %}👥
+                    {% elif ev.event_type == 'EYES_NOT_DETECTED' %}👀
+                    {% elif ev.event_type == 'TAB_RETURN' %}↩️
+                    {% elif ev.event_type == 'FOCUS_GAINED' %}✅
+                    {% else %}📡{% endif %}
+                    {{ ev.event_type|replace('_',' ') }}
+                  </span>
+                </td>
+                <td>
+                  {% if ev.severity %}
+                  <span class="eg-risk-badge 
+                    {% if ev.severity in ['Critical','High'] %}risk-high
+                    {% elif ev.severity == 'Medium' %}risk-medium
+                    {% else %}risk-low{% endif %}" style="font-size:10px; padding:2px 7px;">{{ ev.severity }}</span>
+                  {% else %}—{% endif %}
+                </td>
+                <td style="font-size:12px;">
+                  {% if ev.duration %}{{ ev.duration }}s{% else %}—{% endif %}
+                </td>
+                <td style="font-size:11px; color:#64748b; white-space:nowrap;">
+                  {{ ev.timestamp.strftime('%b %d %H:%M:%S') if ev.timestamp else '—' }}
+                </td>
+                <td style="font-size:12px; color:#64748b; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                  {{ ev.description or '—' }}
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="6" style="text-align:center; padding:40px; color:#64748b;">
+                  <div style="font-size:40px; margin-bottom:12px;">🎥</div>
+                  No monitoring events recorded yet. Events appear during an active exam.
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+
+
+{% block extra_scripts %}
+<script>
+// ======= TAB SWITCHER =======
+// ======= GLOBAL TAB SWITCHER (called from sidebar & tabs) =======
+function switchTab(name, btn) {
+  document.querySelectorAll('.eg-tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.eg-tab-btn').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById('tab-' + name);
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name === 'violations') renderViolationCharts();
+  if (name === 'overview') renderOverviewCharts();
+  if (name === 'analytics') renderAnalyticsCharts();
+  if (name === 'monitoring') renderMonitoringCharts();
+  if (name === 'assessments') renderAssessmentCharts();
+}
+
+// expose for sidebar links
+window._goTab = function(name) {
+  const btns = document.querySelectorAll('.eg-tab-btn');
+  const tabMap = { violations:0, reports:1, assessments:2, analytics:3, monitoring:4, overview:5, history:6 };
+  const btn = btns[tabMap[name]] || btns[0];
+  switchTab(name, btn);
+  window.scrollTo({top:0, behavior:'smooth'});
+};
+
+// ======= VIOLATIONS CHARTS =======
+let vChartsRendered = false;
+function renderViolationCharts() {
+  if (vChartsRendered) return; vChartsRendered = true;
+  const violations = {{ all_violations | map(attribute='violation_type') | list | tojson }};
+  const severities = {{ all_violations | map(attribute='severity') | list | tojson }};
+  const sevCounts = { Critical:0, High:0, Medium:0, Low:0 };
+  severities.forEach(s => { if(sevCounts[s]!==undefined) sevCounts[s]++; });
+  new Chart(document.getElementById('severityDonut'), {
+    type:'doughnut',
+    data:{ labels:Object.keys(sevCounts), datasets:[{data:Object.values(sevCounts), backgroundColor:['#ef4444','#f97316','#f59e0b','#10b981'], borderWidth:0, borderRadius:4}]},
+    options:{cutout:'65%', plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:12}}}, animation:{duration:1200}}
+  });
+  const typeCounts={};
+  violations.forEach(v=>{const k=v.replace(/_/g,' ');typeCounts[k]=(typeCounts[k]||0)+1;});
+  const labels=Object.keys(typeCounts), data=Object.values(typeCounts);
+  new Chart(document.getElementById('typeBar'), {
+    type:'bar',
+    data:{labels:labels.length?labels:['No Violations'], datasets:[{label:'Count',data:data.length?data:[0],backgroundColor:'#4f46e5',borderRadius:8,borderSkipped:false}]},
+    options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'},ticks:{stepSize:1,font:{size:10}}},y:{grid:{display:false},ticks:{font:{size:10}}}},animation:{duration:1000}}
+  });
+}
+
+// ======= OVERVIEW CHARTS =======
+let oChartsRendered = false;
+function renderOverviewCharts() {
+  if (oChartsRendered) return; oChartsRendered = true;
+  const avgScore = {{ summary.avg_integrity }};
+  new Chart(document.getElementById('integrityRing'), {
+    type:'doughnut',
+    data:{datasets:[{data:[avgScore,100-avgScore],backgroundColor:[avgScore>=75?'#10b981':(avgScore>=50?'#f59e0b':'#ef4444'),'#f1f5f9'],borderWidth:0,borderRadius:4}]},
+    options:{cutout:'75%',plugins:{legend:{display:false},tooltip:{enabled:false}},animation:{animateRotate:true,duration:1800}}
+  });
+}
+
+// ======= ANALYTICS CHARTS =======
+let aChartsRendered = false;
+function renderAnalyticsCharts() {
+  if (aChartsRendered) return; aChartsRendered = true;
+  const dates = {{ analytics_data.session_dates | tojson }};
+  const intScores = {{ analytics_data.integrity_scores | tojson }};
+  const scores = {{ analytics_data.scores | tojson }};
+  const tabs = {{ analytics_data.tab_switches | tojson }};
+  const faces = {{ analytics_data.face_absences | tojson }};
+  const vCounts = {{ analytics_data.violation_counts | tojson }};
+  const labels = dates.length ? dates : ['No Data'];
+
+  new Chart(document.getElementById('analyticsTrend'), {
+    type:'line',
+    data:{labels, datasets:[{label:'Integrity Score',data:intScores.length?intScores:[100],borderColor:'#4f46e5',backgroundColor:'rgba(79,70,229,0.1)',tension:0.4,fill:true,pointBackgroundColor:'#4f46e5',pointRadius:5,borderWidth:2.5}]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{min:0,max:100,grid:{color:'#f1f5f9'},ticks:{font:{size:11}}},x:{grid:{display:false},ticks:{font:{size:10}}}},animation:{duration:1200}}
+  });
+  new Chart(document.getElementById('analyticsScores'), {
+    type:'bar',
+    data:{labels, datasets:[{label:'Exam Score',data:scores.length?scores:[0],backgroundColor:'#10b981',borderRadius:8,borderSkipped:false}]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'#f1f5f9'},ticks:{font:{size:11}}},x:{grid:{display:false},ticks:{font:{size:10}}}},animation:{duration:1000}}
+  });
+  new Chart(document.getElementById('analyticsViolations'), {
+    type:'bar',
+    data:{labels, datasets:[{label:'Violations',data:vCounts.length?vCounts:[0],backgroundColor:'#ef4444',borderRadius:6,borderSkipped:false}]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'#f1f5f9'},ticks:{font:{size:11},stepSize:1}},x:{grid:{display:false},ticks:{font:{size:10}}}},animation:{duration:1000}}
+  });
+  new Chart(document.getElementById('analyticsTabFocus'), {
+    type:'line',
+    data:{labels, datasets:[
+      {label:'Tab Switches',data:tabs.length?tabs:[0],borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,0.08)',tension:0.4,fill:true,pointRadius:4,borderWidth:2},
+      {label:'Focus Loss',data:{{ analytics_data.focus_losses | tojson }}.length?{{ analytics_data.focus_losses | tojson }}:[0],borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,0.08)',tension:0.4,fill:true,pointRadius:4,borderWidth:2}
+    ]},
+    options:{responsive:true,plugins:{legend:{position:'top',labels:{font:{size:11}}}},scales:{y:{beginAtZero:true,grid:{color:'#f1f5f9'},ticks:{font:{size:11}}},x:{grid:{display:false},ticks:{font:{size:10}}}},animation:{duration:1200}}
+  });
+  {% if cluster_counts %}
+  new Chart(document.getElementById('clusterPie'), {
+    type:'doughnut',
+    data:{labels:{{ cluster_counts.keys()|list|tojson }}, datasets:[{data:{{ cluster_counts.values()|list|tojson }},backgroundColor:['#4f46e5','#10b981','#f59e0b','#ef4444'],borderWidth:0,borderRadius:4}]},
+    options:{cutout:'55%',plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:12}}},animation:{duration:1200}}
+  });
+  {% endif %}
+}
+
+// ======= MONITORING CHARTS =======
+let mChartsRendered = false;
+function renderMonitoringCharts() {
+  if (mChartsRendered) return; mChartsRendered = true;
+  const mData = {
+    labels: ['Tab Switch','Focus Lost','Face Absent','Multi Faces','Eyes Off'],
+    data: [{{ monitoring_summary.tab_switch }},{{ monitoring_summary.focus_lost }},{{ monitoring_summary.face_absent }},{{ monitoring_summary.multiple_faces }},{{ monitoring_summary.eyes_not_detected }}]
+  };
+  new Chart(document.getElementById('monitoringBar'), {
+    type:'bar',
+    data:{labels:mData.labels, datasets:[{label:'Events',data:mData.data,backgroundColor:['#3b82f6','#f59e0b','#ef4444','#dc2626','#8b5cf6'],borderRadius:8,borderSkipped:false}]},
+    options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'},ticks:{font:{size:10},stepSize:1}},y:{grid:{display:false},ticks:{font:{size:11}}}},animation:{duration:1000}}
+  });
+}
+
+// ======= ASSESSMENT CHARTS =======
+let assChartsRendered = false;
+function renderAssessmentCharts() {
+  if (assChartsRendered) return; assChartsRendered = true;
+  {% if candidate_answers %}
+  const correct = {{ candidate_answers|selectattr('is_correct')|list|length }};
+  const wrong = {{ candidate_answers|length }} - correct;
+  new Chart(document.getElementById('answersDonut'), {
+    type:'doughnut',
+    data:{labels:['Correct','Wrong'],datasets:[{data:[correct,wrong],backgroundColor:['#10b981','#ef4444'],borderWidth:0,borderRadius:4}]},
+    options:{cutout:'65%',plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:12}}},animation:{duration:1200}}
+  });
+  {% endif %}
+}
+
+// Auto-render violations charts on load (default tab)
+document.addEventListener('DOMContentLoaded', function() {
+  const requestedTab = new URLSearchParams(window.location.search).get('tab') || 'overview';
+  const validTabs = ['violations', 'reports', 'assessments', 'analytics', 'monitoring', 'overview', 'history'];
+  window._goTab(validTabs.includes(requestedTab) ? requestedTab : 'overview');
+});
+</script>
+{% endblock %}
+
