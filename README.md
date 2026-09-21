@@ -1,107 +1,97 @@
-# Online Exam Monitoring & Integrity Analytics Platform - Milestone 1
+# Smart Examination Monitoring Platform
 
-This project represents the foundation of an Online Examination Monitoring System. It implements candidate registration, OpenCV-based webcam photo capture (for registration), login functionality, and basic session management using Flask and SQLite.
+## Development of Smart Examination Monitoring Platform with Integrity Analysis & Reporting System
 
-## System Architecture
+### Project Overview
 
-```mermaid
-flowchart TD
-    ClientBrowser[Client Browser] -->|HTTP/HTTPS| FlaskApp[Flask Web Application]
-    
-    subgraph Backend
-        FlaskApp --> AuthModule[Authentication Module]
-        FlaskApp --> SessionModule[Session Management Module]
-        FlaskApp --> CameraModule[Photo Capture Module]
-    end
-    
-    AuthModule --> DatabaseLayer
-    SessionModule --> DatabaseLayer
-    CameraModule --> FileSystem[static/photos/]
-    
-    DatabaseLayer --> SQLiteDB[(SQLite Database)]
+The Smart Examination Monitoring Platform is a web-based application designed to support secure and monitored online examinations.
+
+The system combines candidate authentication, identity verification, examination management, browser monitoring, webcam monitoring, suspicious activity detection, integrity analysis, and reporting.
+
+### Key Features
+
+* Candidate registration and authentication
+* Identity verification using webcam
+* Examination session management
+* Browser activity monitoring
+* Webcam-based monitoring
+* Suspicious activity detection
+* Integrity analysis
+* Behaviour analysis using K-Means clustering
+* Examination and integrity reporting
+
+### Technology Stack
+
+| Technology       | Purpose                     |
+| ---------------- | --------------------------- |
+| Python           | Application development     |
+| Flask            | Web application framework   |
+| Flask-SQLAlchemy | Database management         |
+| SQLite           | Database storage            |
+| OpenCV           | Camera and image processing |
+| HTML             | Web page structure          |
+| CSS              | User interface              |
+| JavaScript       | Client-side interaction     |
+| K-Means          | Behaviour analysis          |
+| GitHub           | Source code management      |
+
+### Project Structure
+
+```text
+Smart-Examination-Monitoring-Platform/
+│
+├── models/
+├── routes/
+├── static/
+├── templates/
+├── tests/
+├── utils/
+├── app.py
+├── config.py
+├── extensions.py
+├── requirements.txt
+├── README.md
+└── LICENSE
 ```
 
-## Database Schema (ER Diagram)
+### Installation
 
-```mermaid
-erDiagram
-    Candidate {
-        Integer id PK
-        String full_name
-        String email
-        String password_hash
-        String photo_path
-        DateTime created_at
-    }
-    ExamSession {
-        Integer id PK
-        Integer candidate_id FK
-        String session_token
-        DateTime login_time
-        DateTime logout_time
-        String status
-        DateTime created_at
-    }
-    AuthenticationLog {
-        Integer id PK
-        Integer candidate_id FK
-        DateTime login_time
-        DateTime logout_time
-        String ip_address
-        String user_agent
-        String status
-    }
-    SessionLog {
-        Integer id PK
-        Integer session_id FK
-        DateTime timestamp
-        String event_type
-        String description
-    }
-    
-    Candidate ||--o{ ExamSession : \"starts\"
-    Candidate ||--o{ AuthenticationLog : \"generates\"
-    ExamSession ||--o{ SessionLog : \"contains\"
+Create and activate a Python virtual environment, then install the required dependencies:
+
+```bash
+python -m venv .venv
 ```
 
-## Folder Structure
+For Windows:
 
-* `project/`
-  * `app.py`: Main Flask application entry point.
-  * `config.py`: Configuration settings.
-  * `extensions.py`: Centralizes Flask extensions (SQLAlchemy, LoginManager).
-  * `requirements.txt`: Python dependencies.
-  * `instance/`: SQLite database storage.
-  * `models/`: Database models for Candidate, Sessions, Logs.
-  * `routes/`: Controllers (auth, dashboard, camera).
-  * `templates/`: HTML Bootstrap templates.
-  * `static/`: CSS, JS, and captured photos.
-  * `utils/`: Faker generator and OpenCV camera utility.
-  * `tests/`: Validation scripts.
+```bash
+.venv\Scripts\activate
+```
 
-## Installation Guide
+Install dependencies:
 
-1. Ensure Python 3.12 is installed.
-2. Create and activate a virtual environment (optional but recommended).
-   ```bash
-   python -m venv venv
-   # Windows:
-   venv\\Scripts\\activate
-   # macOS/Linux:
-   source venv/bin/activate
-   ```
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+pip install -r requirements.txt
+```
 
-## Execution Steps
+### Run the Project
 
-1. Run the application:
-   ```bash
-   python app.py
-   ```
-2. The system will automatically create `instance/database.db` and seed it with 100 fake candidates and 500 fake session logs.
-3. Visit `http://127.0.0.1:5000` in your web browser.
-4. Go to the \"Register\" page to create an account. Follow the camera capture prompt (A backend window will open on the server machine, press SPACE to capture, ESC to close).
-5. Log in with your new credentials and view the Dashboard.
+Start the Flask application:
+
+```bash
+python app.py
+```
+
+Then open the local address displayed by Flask, commonly:
+
+```text
+http://127.0.0.1:5000
+```
+
+### Documentation
+
+Detailed information about the system architecture, workflow, database design, diagrams, modules, testing, results, and other project details is available in the **Project Documentation**.
+
+### License
+
+This project is licensed under the MIT License.
