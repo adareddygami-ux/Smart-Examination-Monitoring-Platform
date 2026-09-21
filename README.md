@@ -655,9 +655,9 @@ Before final submission, verify the following:
 * [x] Defect Tracker included
 * [x] Source/coding files included
 * [x] Project folders organized
-* [ ] Final project execution verified locally
-* [ ] GitHub repository final review completed
-* [ ] Google Form submitted with GitHub repository link
+* [x] Final project execution verified locally
+* [x] GitHub repository final review completed
+* [x] Google Form submitted with GitHub repository link
 
 ---
 
